@@ -327,18 +327,13 @@ class AIService:
             if not has_nuts:
                 dietary_info.append("nut-free")
             
-            if is_spicy:
-                dietary_info.append("spicy")
-            
+            # Check for keto/low-carb
             if is_low_carb or "keto" in combined_text:
-                dietary_info.append("low-carb")
+                dietary_info.append("keto")
             
             # Check for explicit dietary mentions
             if "paleo" in combined_text:
                 dietary_info.append("paleo")
-            
-            if "mediterranean" in combined_text:
-                dietary_info.append("mediterranean")
             
             return dietary_info
             

@@ -265,10 +265,10 @@ async def get_url_info(
         
         return {
             "url": url,
-            "isValid": validation.isValid,
-            "postType": validation.postType,
-            "message": validation.message,
-            "canProcess": validation.isValid and validation.postType in ['post', 'reel', 'tv']
+            "isValid": validation["isValid"],
+            "postType": validation["postType"],
+            "message": validation["message"],
+            "canProcess": validation["isValid"] and validation["postType"] in ['post', 'reel', 'tv']
         }
         
     except RateLimitError as e:
@@ -321,9 +321,9 @@ async def bulk_validate_urls(
                 validation = await instagram_service.validate_url(url)
                 results.append({
                     "url": url,
-                    "isValid": validation.isValid,
-                    "postType": validation.postType,
-                    "message": validation.message,
+                    "isValid": validation["isValid"],
+                    "postType": validation["postType"],
+                    "message": validation["message"],
                     "error": None
                 })
             except Exception as e:
@@ -420,18 +420,18 @@ async def test_instagram_connection(
             validation = await instagram_service.validate_url(test_url)
             
             connection_test = {
-                "connectionStatus": "successful" if validation.isValid else "failed",
+                "connectionStatus": "successful" if validation["isValid"] else "failed",
                 "testUrl": test_url,
                 "validationResult": {
-                    "isValid": validation.isValid,
-                    "postType": validation.postType,
-                    "message": validation.message
+                    "isValid": validation["isValid"],
+                    "postType": validation["postType"],
+                    "message": validation["message"]
                 },
                 "timestamp": logger.info(f"Instagram connection test completed"),
                 "recommendations": []
             }
             
-            if not validation.isValid:
+            if not validation["isValid"]:
                 connection_test["recommendations"].append(
                     "Check internet connectivity and Instagram service status"
                 )

@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  updateProfile,
   User as FirebaseUser
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { apiService } from '../services/api';
 import type { 
   AppContextType, 
   Recipe, 
@@ -18,6 +18,15 @@ import type {
   ErrorState 
 } from '../types';
 import { RECIPE_CATEGORIES } from '../config/constants';
+import apiService from '../services/api';
+
+// Debug the imported API service
+console.log('🔍 AppContext: Imported apiService:', apiService);
+console.log('🔍 AppContext: apiService type:', typeof apiService);
+console.log('🔍 AppContext: apiService constructor:', apiService?.constructor?.name);
+console.log('🔍 AppContext: apiService methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(apiService || {})));
+console.log('🔍 AppContext: Direct access to getRecipes:', apiService?.getRecipes);
+console.log('🔍 AppContext: Direct access to getUserProfile:', apiService?.getUserProfile);
 
 // Action types
 type AppAction = 
@@ -104,6 +113,13 @@ export function AppProvider({ children }: AppProviderProps) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         try {
+          // 🔥 TEMPORARY: Console log Firebase ID token for testing
+          const idToken = await firebaseUser.getIdToken();
+          console.log('🔥 Firebase ID Token (REMOVE IN PRODUCTION):', idToken);
+          console.log('🔥 User UID:', firebaseUser.uid);
+          console.log('🔥 User Email:', firebaseUser.email);
+          console.log('🔥 Use in Swagger: Bearer', idToken);
+          
           // Get or create user profile
           const profileResponse = await apiService.getUserProfile();
           if (profileResponse.data) {
@@ -128,6 +144,7 @@ export function AppProvider({ children }: AppProviderProps) {
           dispatch({ type: 'SET_USER', payload: basicUser });
         }
       } else {
+        console.log('🔥 User logged out - no token available');
         dispatch({ type: 'SET_USER', payload: null });
         dispatch({ type: 'SET_RECIPES', payload: [] });
       }
@@ -137,10 +154,16 @@ export function AppProvider({ children }: AppProviderProps) {
   }, []);
 
   // Context methods
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: { isLoading: true, message: 'Signing in...' } });
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      // 🔥 TEMPORARY: Console log Firebase ID token immediately after login
+      const idToken = await userCredential.user.getIdToken();
+      console.log('🔥 LOGIN SUCCESS - Firebase ID Token:', idToken);
+      console.log('🔥 Copy this for Swagger: Bearer', idToken);
+      
       dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
     } catch (error: any) {
       dispatch({ 
@@ -152,15 +175,20 @@ export function AppProvider({ children }: AppProviderProps) {
       });
       throw error;
     }
-  };
+  }, []);
 
   const signup = async (email: string, password: string, displayName: string): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: { isLoading: true, message: 'Creating account...' } });
       const result = await createUserWithEmailAndPassword(auth, email, password);
       
-      // Update profile with display name (using Firebase User methods)
-      await result.user.updateProfile({ displayName });
+      // Update profile with display name using Firebase auth function
+      await updateProfile(result.user, { displayName });
+      
+      // 🔥 TEMPORARY: Console log Firebase ID token after signup
+      const idToken = await result.user.getIdToken();
+      console.log('🔥 SIGNUP SUCCESS - Firebase ID Token:', idToken);
+      console.log('🔥 Copy this for Swagger: Bearer', idToken);
       
       dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
     } catch (error: any) {
@@ -255,15 +283,42 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
-  const fetchRecipes = async (page = 1, limit = 12): Promise<void> => {
+  const fetchRecipes = useCallback(async (page = 1, limit = 12): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: { isLoading: true, message: 'Loading recipes...' } });
       
+      console.log('🔍 Debug fetchRecipes:');
+      console.log('- apiService:', apiService);
+      console.log('- apiService type:', typeof apiService);
+      console.log('- apiService is null?', apiService === null);
+      console.log('- apiService is undefined?', apiService === undefined);
+      
+      if (apiService) {
+        console.log('- getRecipes method:', apiService.getRecipes);
+        console.log('- getRecipes type:', typeof apiService.getRecipes);
+        console.log('- apiService constructor:', apiService.constructor?.name);
+        console.log('- apiService keys:', Object.keys(apiService));
+        console.log('- apiService prototype methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(apiService)));
+      }
+      
+      if (!apiService) {
+        console.error('❌ API service is undefined or null');
+        throw new Error('API service is undefined or null');
+      }
+      
+      if (typeof apiService.getRecipes !== 'function') {
+        console.error('❌ getRecipes is not a function:', typeof apiService.getRecipes);
+        throw new Error(`getRecipes method not found. Type: ${typeof apiService.getRecipes}`);
+      }
+      
+      console.log('✅ About to call apiService.getRecipes');
       const response = await apiService.getRecipes({ page, limit });
+      console.log('✅ API response received:', response);
       
       dispatch({ type: 'SET_RECIPES', payload: response.items });
       dispatch({ type: 'SET_LOADING', payload: { isLoading: false } });
     } catch (error: any) {
+      console.error('❌ fetchRecipes error:', error);
       dispatch({ 
         type: 'SET_ERROR', 
         payload: { 
@@ -272,11 +327,30 @@ export function AppProvider({ children }: AppProviderProps) {
         } 
       });
     }
-  };
+  }, []);
 
-  const clearError = (): void => {
+  const clearError = useCallback((): void => {
     dispatch({ type: 'CLEAR_ERROR' });
-  };
+  }, []);
+
+  // 🔥 TEMPORARY: Helper function to get current token (for testing)
+  const getCurrentToken = useCallback(async (): Promise<string | null> => {
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      console.log('🔥 Current Firebase ID Token:', token);
+      console.log('🔥 Use in Swagger: Bearer', token);
+      return token;
+    }
+    console.log('🔥 No user logged in');
+    return null;
+  }, []);
+
+  // 🔥 TEMPORARY: Expose to window for easy console access
+  useEffect(() => {
+    (window as any).getFirebaseToken = getCurrentToken;
+    console.log('🔥 Helper available: Run getFirebaseToken() in console to get current token');
+  }, []); // Remove getCurrentToken dependency to prevent re-renders
 
   const contextValue: AppContextType = {
     user: state.user,

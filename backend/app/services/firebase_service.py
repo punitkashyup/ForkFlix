@@ -191,8 +191,8 @@ class FirebaseService:
                 recipes.append(recipe_data)
             
             # Calculate pagination metadata
-            total_pages = (total_docs + query_params.limit - 1) // query_params.limit
-            has_next = query_params.page < total_pages
+            total_pages = max(1, (total_docs + query_params.limit - 1) // query_params.limit)
+            has_next = query_params.page < total_pages and total_docs > 0
             has_prev = query_params.page > 1
             
             return PaginatedRecipeResponse(

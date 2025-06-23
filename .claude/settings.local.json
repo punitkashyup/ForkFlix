@@ -11,7 +11,14 @@
       "Bash(npm start:*)",
       "Bash(npx tsc:*)",
       "Bash(grep:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(npm create:*)",
+      "Bash(npx sv:*)",
+      "Bash(npm init:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

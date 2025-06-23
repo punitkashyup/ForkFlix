@@ -200,7 +200,7 @@ const EmptyState: React.FC<{ onAddRecipe: () => void }> = ({ onAddRecipe }) => (
  * Home page component with recipe grid, search, and filtering
  */
 const Home: React.FC = () => {
-  const { user, recipes, loading, error, fetchRecipes, deleteRecipe, clearError } = useApp();
+  const { user, recipes, loading, error, fetchRecipes, deleteRecipe, clearError, logout } = useApp();
   const navigate = useNavigate();
   
   // State for search and filtering
@@ -219,7 +219,7 @@ const Home: React.FC = () => {
     if (user) {
       fetchRecipes(1, PAGINATION.DEFAULT_LIMIT);
     }
-  }, [user, fetchRecipes]);
+  }, [user]); // Remove fetchRecipes from dependencies to prevent infinite loops
 
   // Filter recipes based on search and category
   useEffect(() => {
@@ -294,7 +294,7 @@ const Home: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -307,7 +307,7 @@ const Home: React.FC = () => {
                 You have {recipes.length} recipe{recipes.length !== 1 ? 's' : ''} in your collection
               </p>
             </div>
-            <div className="mt-4 sm:mt-0">
+            <div className="mt-4 sm:mt-0 flex space-x-3">
               <Button
                 variant="primary"
                 onClick={handleAddRecipe}
@@ -318,6 +318,21 @@ const Home: React.FC = () => {
                 }
               >
                 Add Recipe
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to logout?')) {
+                    logout();
+                  }
+                }}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                }
+              >
+                Logout
               </Button>
             </div>
           </div>

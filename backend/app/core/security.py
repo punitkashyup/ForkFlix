@@ -39,9 +39,15 @@ def get_password_hash(password: str) -> str:
 async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)) -> dict:
     """Verify Firebase ID token"""
     try:
+        logger.info(f"🔍 Token verification - Environment: {settings.environment}")
+        logger.info(f"🔍 Credentials provided: {credentials is not None}")
+        if credentials:
+            logger.info(f"🔍 Token scheme: {credentials.scheme}")
+            logger.info(f"🔍 Token preview: {credentials.credentials[:50]}...")
+        
         # For development, if no token provided, return mock user
         if settings.environment == "development" and not credentials:
-            logger.info("Development mode: Using mock authentication")
+            logger.info("✅ Development mode: Using mock authentication (no token)")
             return {
                 "uid": "dev_user_123",
                 "email": "dev@example.com",
@@ -53,10 +59,11 @@ async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentia
         if credentials:
             # For development, accept any token
             if settings.environment == "development":
+                logger.info("✅ Development mode: Accepting provided token")
                 return {
-                    "uid": "dev_user_123",
-                    "email": "dev@example.com", 
-                    "name": "Development User",
+                    "uid": "firebase_user_from_token",
+                    "email": "token@example.com", 
+                    "name": "Token User",
                     "picture": None
                 }
             
@@ -67,6 +74,7 @@ async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentia
         
         # Fallback mock user for development
         if settings.environment == "development":
+            logger.info("✅ Development mode: Using fallback mock user")
             return {
                 "uid": "mock_user_123",
                 "email": "user@example.com",
@@ -75,6 +83,7 @@ async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentia
             }
         
         # In production, require authentication
+        logger.error("❌ Production mode: Authentication required")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required",
@@ -82,13 +91,15 @@ async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentia
         )
         
     except HTTPException:
+        logger.error("❌ HTTPException raised during token verification")
         raise
     except Exception as e:
-        logger.error(f"Token verification failed: {e}")
+        logger.error(f"❌ Token verification failed with exception: {e}")
+        logger.error(f"❌ Exception type: {type(e)}")
         
         # In development, return mock user on error
         if settings.environment == "development":
-            logger.warning("Authentication failed, using mock user for development")
+            logger.warning("⚠️ Authentication failed, using mock user for development")
             return {
                 "uid": "error_fallback_user",
                 "email": "fallback@example.com",

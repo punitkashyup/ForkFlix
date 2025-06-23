@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/layout/Navbar';
@@ -200,12 +200,23 @@ function AnimatedRoutes() {
 
 // Main App Layout
 function AppLayout() {
-  const { loading, error } = useApp();
+  const { user, loading, error, logout, clearError } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Handle navigation
+  const handleNavigation = (href: string) => {
+    navigate(href);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <Navbar />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Navigation - Always show */}
+      <Navbar 
+        user={user}
+        onLogout={logout}
+        onLinkClick={handleNavigation}
+      />
       
       {/* Error Banner */}
       <AnimatePresence>
@@ -215,10 +226,12 @@ function AppLayout() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             transition={{ duration: 0.3 }}
+            className="relative z-40"
           >
             <ErrorBanner 
               message={error.message || 'An error occurred'} 
-              onClose={() => {}} 
+              onClose={clearError}
+              dismissible
             />
           </motion.div>
         )}
@@ -235,7 +248,7 @@ function AppLayout() {
             transition={{ duration: 0.2 }}
           >
             <motion.div 
-              className="bg-white rounded-lg p-6 shadow-xl"
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
@@ -251,7 +264,7 @@ function AppLayout() {
       </AnimatePresence>
       
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
+      <main>
         <AnimatedRoutes />
       </main>
     </div>

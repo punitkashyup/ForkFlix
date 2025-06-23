@@ -27,11 +27,11 @@ export const API_ENDPOINTS = {
 } as const;
 
 export const RECIPE_CATEGORIES = [
-  { id: 'starters', name: 'Starters', icon: '🥗', color: '#4ade80' },
-  { id: 'main-course', name: 'Main Course', icon: '🍽️', color: '#3b82f6' },
-  { id: 'desserts', name: 'Desserts', icon: '🍰', color: '#f59e0b' },
-  { id: 'beverages', name: 'Beverages', icon: '🥤', color: '#06b6d4' },
-  { id: 'snacks', name: 'Snacks', icon: '🍿', color: '#8b5cf6' },
+  { id: 'Starters', name: 'Starters', icon: '🥗', color: '#4ade80' },
+  { id: 'Main Course', name: 'Main Course', icon: '🍽️', color: '#3b82f6' },
+  { id: 'Desserts', name: 'Desserts', icon: '🍰', color: '#f59e0b' },
+  { id: 'Beverages', name: 'Beverages', icon: '🥤', color: '#06b6d4' },
+  { id: 'Snacks', name: 'Snacks', icon: '🍿', color: '#8b5cf6' },
 ] as const;
 
 export const DIETARY_OPTIONS = [

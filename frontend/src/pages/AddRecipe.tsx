@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
 import ErrorBanner from '../components/common/ErrorBanner';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import { RECIPE_CATEGORIES, DIFFICULTY_LEVELS, VALIDATION } from '../config/constants';
 import type { RecipeFormData, RecipeCategory, RecipeDifficulty, InstagramMetadata, AIAnalysisResult } from '../types';
 

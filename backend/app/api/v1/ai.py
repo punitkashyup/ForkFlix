@@ -51,10 +51,10 @@ async def extract_ingredients(
         # Validate Instagram URL first
         try:
             validation = await instagram_service.validate_url(str(request.instagramUrl))
-            if not validation.isValid:
+            if not validation["isValid"]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid Instagram URL: {validation.message}"
+                    detail=f"Invalid Instagram URL: {validation['message']}"
                 )
         except RateLimitError as e:
             raise HTTPException(
@@ -78,12 +78,12 @@ async def extract_ingredients(
         # Run AI extraction with all available data
         ai_result = await ai_service.extract_from_instagram(
             instagram_url=str(request.instagramUrl),
-            thumbnail_url=str(metadata.thumbnailUrl) if metadata and metadata.thumbnailUrl else None,
-            description=metadata.description if metadata else None,
+            thumbnail_url=str(metadata["thumbnailUrl"]) if metadata and metadata.get("thumbnailUrl") else None,
+            description=metadata.get("description") if metadata else None,
             caption=None  # Could be enhanced to extract caption from metadata
         )
         
-        logger.info(f"AI extraction completed with confidence: {ai_result.confidence}")
+        logger.info(f"AI extraction completed with confidence: {ai_result['confidence']}")
         return ai_result
         
     except HTTPException:
@@ -770,11 +770,11 @@ async def process_batch_ai_extraction(
                 
                 # Validate URL
                 validation = await instagram_service.validate_url(url)
-                if not validation.isValid:
+                if not validation["isValid"]:
                     results.append({
                         "url": url,
                         "status": "failed",
-                        "error": validation.message,
+                        "error": validation["message"],
                         "data": None
                     })
                     continue
@@ -788,8 +788,8 @@ async def process_batch_ai_extraction(
                 # Run AI extraction
                 ai_result = await ai_service.extract_from_instagram(
                     instagram_url=url,
-                    thumbnail_url=str(metadata.thumbnailUrl) if metadata and metadata.thumbnailUrl else None,
-                    description=metadata.description if metadata else None,
+                    thumbnail_url=str(metadata["thumbnailUrl"]) if metadata and metadata.get("thumbnailUrl") else None,
+                    description=metadata.get("description") if metadata else None,
                     caption=None
                 )
                 
@@ -798,13 +798,13 @@ async def process_batch_ai_extraction(
                     "status": "success",
                     "error": None,
                     "data": {
-                        "ingredients": ai_result.ingredients,
-                        "category": ai_result.category.value if ai_result.category else None,
-                        "cookingTime": ai_result.cookingTime,
-                        "difficulty": ai_result.difficulty.value if ai_result.difficulty else None,
-                        "dietaryInfo": [info.value for info in ai_result.dietaryInfo],
-                        "tags": ai_result.tags,
-                        "confidence": ai_result.confidence
+                        "ingredients": ai_result["ingredients"],
+                        "category": ai_result["category"],
+                        "cookingTime": ai_result["cookingTime"],
+                        "difficulty": ai_result["difficulty"],
+                        "dietaryInfo": ai_result["dietaryInfo"],
+                        "tags": ai_result["tags"],
+                        "confidence": ai_result["confidence"]
                     }
                 })
                 

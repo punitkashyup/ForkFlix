@@ -5,7 +5,7 @@ import Button from '../components/common/Button';
 import Loading from '../components/common/Loading';
 import ErrorBanner from '../components/common/ErrorBanner';
 import Modal from '../components/common/Modal';
-import { apiService } from '../services/api';
+import apiService from '../services/api';
 import { RECIPE_CATEGORIES } from '../config/constants';
 import type { Recipe } from '../types';
 
