@@ -1,16 +1,18 @@
 <script>
 	import { onMount } from 'svelte';
-	import { user, recipes, loading, error } from '$lib/stores/auth.js';
+	import { user, recipes, loading, error, authInitialized } from '$lib/stores/auth.js';
 	import { apiService } from '$lib/services/api.js';
 	import { goto } from '$app/navigation';
 	import { PAGINATION } from '$lib/config/constants.js';
 	import { signOut } from 'firebase/auth';
 	import { auth } from '$lib/config/firebase.js';
+	import Loading from '$lib/components/Loading.svelte';
 	
 	let searchTerm = '';
 	let selectedCategory = '';
 	let filteredRecipes = [];
 	let showUserMenu = false;
+	let hasAttemptedFetch = false;
 	
 	// Subscribe to recipes store
 	$: filteredRecipes = $recipes.filter(recipe => {
@@ -23,21 +25,43 @@
 		return matchesSearch && matchesCategory;
 	});
 
-	onMount(async () => {
-		// Fetch recipes when component mounts
-		if ($user) {
-			await fetchRecipes();
-		}
+	let currentUserId = null;
+
+	onMount(() => {
+		console.log('🔧 Home page mounted');
 	});
 
+	// Watch for auth changes and handle accordingly
+	$: if ($authInitialized) {
+		const userId = $user?.uid;
+		if (userId && userId !== currentUserId) {
+			// User logged in or changed
+			console.log('👤 User logged in:', userId);
+			currentUserId = userId;
+			hasAttemptedFetch = false; // Reset flag for new user
+			fetchRecipes();
+		} else if (!userId && currentUserId) {
+			// User logged out
+			console.log('🚪 User logged out');
+			currentUserId = null;
+			hasAttemptedFetch = false;
+			recipes.set([]);
+			error.set(null);
+		}
+	}
+
 	async function fetchRecipes() {
+		console.log('🔍 fetchRecipes called');
 		try {
 			loading.set(true);
+			hasAttemptedFetch = true; // Set flag to prevent repeated calls
 			const response = await apiService.getRecipes({ page: 1, limit: PAGINATION.DEFAULT_LIMIT });
+			console.log('✅ API Response:', response);
 			recipes.set(response.items || []);
+			console.log('✅ Recipes set in store:', response.items?.length || 0, 'items');
 		} catch (err) {
 			error.set('Failed to load recipes');
-			console.error('Error fetching recipes:', err);
+			console.error('❌ Error fetching recipes:', err);
 		} finally {
 			loading.set(false);
 		}
@@ -187,8 +211,7 @@
 				<!-- Loading State -->
 				{#if $loading}
 					<div class="text-center py-8">
-						<div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-						<p class="mt-2 text-gray-600">Loading recipes...</p>
+						<Loading message="Loading recipes..." />
 					</div>
 				{:else if $error}
 					<div class="bg-red-50 border border-red-200 rounded-lg p-4">

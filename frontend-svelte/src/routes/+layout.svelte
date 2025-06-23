@@ -1,11 +1,13 @@
 <script>
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import '../app.css';
 	
 	// Global state stores
-	import { user, recipes, loading } from '$lib/stores/auth.js';
+	import { user, recipes, loading, authInitialized } from '$lib/stores/auth.js';
 	import { auth } from '$lib/config/firebase.js';
 	import { onAuthStateChanged } from 'firebase/auth';
+	import Loading from '$lib/components/Loading.svelte';
 	
 	onMount(() => {
 		// Set up Firebase auth listener
@@ -20,12 +22,22 @@
 			} else {
 				user.set(null);
 			}
+			
+			// Mark auth as initialized after first callback
+			authInitialized.set(true);
 		});
 		
 		return unsubscribe;
 	});
 </script>
 
-<main class="min-h-screen bg-gray-50">
-	<slot />
-</main>
+{#if !$authInitialized}
+	<!-- Auth loading screen -->
+	<div class="min-h-screen bg-gray-50 flex items-center justify-center" transition:fade={{ duration: 300 }}>
+		<Loading message="Initializing..." showLogo={true} size="lg" />
+	</div>
+{:else}
+	<main class="min-h-screen bg-gray-50" transition:fade={{ duration: 300 }}>
+		<slot />
+	</main>
+{/if}

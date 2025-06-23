@@ -3,6 +3,9 @@ import { writable } from 'svelte/store';
 // User authentication store
 export const user = writable(null);
 
+// Auth initialization state (prevents FOUC)
+export const authInitialized = writable(false);
+
 // Loading states
 export const loading = writable(false);
 
