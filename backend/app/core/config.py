@@ -23,8 +23,9 @@ class Settings(BaseSettings):
     firebase_project_id: str = Field(default="", env="FIREBASE_PROJECT_ID")
     firebase_credentials_path: str = Field(default="../firebase/firebase-admin-key.json", env="FIREBASE_CREDENTIALS_PATH")
     
-    # Hugging Face configuration
+    # AI API configuration
     huggingface_api_key: str = Field(default="", env="HUGGINGFACE_API_KEY")
+    mistral_api_key: str = Field(default="ZUIt0gR9H2LgQg7kXDHzMOcocD1c5z3W", env="MISTRAL_API_KEY")
     
     # Instagram/Facebook configuration
     instagram_access_token: str = Field(default="", env="INSTAGRAM_ACCESS_TOKEN")

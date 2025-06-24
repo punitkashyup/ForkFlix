@@ -44,6 +44,12 @@ async def validate_instagram_url(
         # Use the Instagram service to validate the URL
         validation_result = await instagram_service.validate_url(str(request.url))
         
+        # Add processing capability info
+        validation_result["canProcess"] = (
+            validation_result.get("isValid", False) and 
+            validation_result.get("postType") in ['post', 'reel', 'tv']
+        )
+        
         return validation_result
         
     except RateLimitError as e:
@@ -242,47 +248,7 @@ async def instagram_service_health():
         )
 
 
-@router.get("/url-info")
-async def get_url_info(
-    url: str,
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Get basic URL information without full metadata
-    
-    This endpoint provides quick URL analysis including:
-    - URL format validation
-    - Post type detection
-    - Basic accessibility check
-    
-    Useful for preliminary URL validation before processing.
-    """
-    try:
-        logger.info(f"Getting URL info for: {url}")
-        
-        # Validate and get basic info
-        validation = await instagram_service.validate_url(url)
-        
-        return {
-            "url": url,
-            "isValid": validation["isValid"],
-            "postType": validation["postType"],
-            "message": validation["message"],
-            "canProcess": validation["isValid"] and validation["postType"] in ['post', 'reel', 'tv']
-        }
-        
-    except RateLimitError as e:
-        logger.warning(f"Rate limit exceeded for URL info: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Error getting URL info: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get URL information"
-        )
+# Removed redundant /url-info endpoint - functionality merged into /validate
 
 
 @router.post("/bulk-validate")

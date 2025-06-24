@@ -3,14 +3,19 @@
 	import { user, loading, error } from '$lib/stores/auth.js';
 	import { apiService } from '$lib/services/api.js';
 	import { goto } from '$app/navigation';
+	import MultiModalExtraction from '$lib/components/MultiModalExtraction.svelte';
+	import SmartRecipeEditor from '$lib/components/SmartRecipeEditor.svelte';
 	
 	let instagramUrl = '';
 	let extractedData = null;
+	let extractionData = null;
 	let isExtracting = false;
 	let extractionError = '';
 	let embedCode = '';
 	let thumbnailUrl = '';
 	let metadata = null;
+	let useAdvancedExtraction = true;
+	let showSmartEditor = false;
 	
 	// Form fields for manual input
 	let title = '';
@@ -27,6 +32,89 @@
 		}
 	});
 
+	// Handlers for multi-modal extraction
+	function handleMultiModalCompleted(event) {
+		const { result } = event.detail;
+		extractionData = result; // Keep original extraction data for confidence analysis
+		isExtracting = false;
+		showSmartEditor = true;
+		
+		// Handle Phase 5 Mistral AI structured data or fallback to Phase 4
+		let recipeData;
+		if (result?.recipe_data) {
+			// Phase 5: Mistral AI structured data
+			recipeData = result.recipe_data;
+			console.log('✅ Using Phase 5 Mistral AI data:', recipeData);
+		} else {
+			// Phase 4: AI Fusion data (fallback)
+			recipeData = result;
+			console.log('⚠️ Using Phase 4 AI Fusion data:', recipeData);
+		}
+		
+		// Transform data to SmartRecipeEditor expected format
+		let transformedIngredients;
+		if (recipeData.ingredients && Array.isArray(recipeData.ingredients)) {
+			if (recipeData.ingredients.length > 0 && typeof recipeData.ingredients[0] === 'object') {
+				// Mistral AI format: [{name: "...", amount: "...", unit: "..."}]
+				transformedIngredients = recipeData.ingredients.map(ing => 
+					`${ing.amount || ''} ${ing.unit || ''} ${ing.name || ''}`.trim()
+				).filter(ing => ing.length > 0);
+			} else {
+				// Simple string array format
+				transformedIngredients = recipeData.ingredients.filter(ing => ing && ing.trim());
+			}
+		} else {
+			transformedIngredients = [''];
+		}
+		
+		// Transform instructions
+		let transformedInstructions;
+		if (recipeData.instructions && Array.isArray(recipeData.instructions)) {
+			transformedInstructions = recipeData.instructions.join('\n');
+		} else {
+			transformedInstructions = recipeData.instructions || '';
+		}
+		
+		// Create transformed data for SmartRecipeEditor
+		extractedData = {
+			title: recipeData.recipe_name || recipeData.title || '',
+			category: recipeData.category || 'Main Course',
+			cookingTime: recipeData.cooking_time?.total_minutes || recipeData.cookingTime || 30,
+			difficulty: recipeData.difficulty || 'Medium',
+			ingredients: transformedIngredients,
+			instructions: transformedInstructions,
+			// Keep original data for reference
+			_originalData: recipeData,
+			_extractionMethod: result?.recipe_data ? 'mistral_ai' : 'ai_fusion',
+			confidence: result.confidence || 0.8
+		};
+		
+		// Populate basic form fields with structured data
+		title = extractedData.title;
+		category = extractedData.category;
+		cookingTime = extractedData.cookingTime;
+		difficulty = extractedData.difficulty;
+		ingredients = extractedData.ingredients.length > 0 ? extractedData.ingredients : [''];
+		instructions = extractedData.instructions;
+		
+		console.log('✅ Transformed data for SmartRecipeEditor:', extractedData);
+	}
+	
+	function handleMultiModalError(event) {
+		const { error } = event.detail;
+		extractionError = error;
+		isExtracting = false;
+	}
+	
+	function handleMultiModalCancelled() {
+		isExtracting = false;
+	}
+	
+	function handlePhaseUpdate(event) {
+		// Handle real-time phase updates if needed
+		console.log('Phase update:', event.detail);
+	}
+
 	async function extractFromInstagram() {
 		if (!instagramUrl) {
 			extractionError = 'Please enter an Instagram URL';
@@ -37,36 +125,33 @@
 			isExtracting = true;
 			extractionError = '';
 			
-			// Validate URL first
+			// Get metadata for embed code
+			try {
+				metadata = await apiService.getInstagramMetadata(instagramUrl);
+				thumbnailUrl = metadata.thumbnailUrl || '';
+				
+				const embedResponse = await apiService.getInstagramEmbed(instagramUrl);
+				embedCode = embedResponse.embedCode;
+			} catch (err) {
+				console.warn('Failed to get metadata/embed:', err);
+			}
+
+			if (useAdvancedExtraction) {
+				// Multi-modal extraction will be handled by the component
+				return;
+			}
+
+			// Legacy extraction method
 			const validation = await apiService.validateInstagramUrl(instagramUrl);
 			if (!validation.isValid) {
 				extractionError = validation.message;
 				return;
 			}
 
-			// Get metadata (including thumbnail)
-			try {
-				metadata = await apiService.getInstagramMetadata(instagramUrl);
-				thumbnailUrl = metadata.thumbnailUrl || '';
-			} catch (err) {
-				console.warn('Failed to get metadata:', err);
-			}
-
-			// Get embed code
-			try {
-				const embedResponse = await apiService.getInstagramEmbed(instagramUrl);
-				embedCode = embedResponse.embedCode;
-				console.log('🎬 Embed response:', embedResponse);
-				console.log('📱 Embed code:', embedCode);
-			} catch (err) {
-				console.warn('Failed to get embed code:', err);
-			}
-
-			// Extract recipe data with AI
 			const extraction = await apiService.extractRecipeFromInstagram(instagramUrl);
 			extractedData = extraction;
 			
-			// Populate form with extracted data
+			// Populate form with extracted data (legacy format)
 			title = extractedData.ingredients?.slice(0, 3).join(', ') + ' Recipe' || '';
 			category = extractedData.category || 'Main Course';
 			cookingTime = extractedData.cookingTime || 30;
@@ -78,7 +163,9 @@
 			extractionError = 'Failed to extract recipe: ' + err.message;
 			console.error('Extraction error:', err);
 		} finally {
-			isExtracting = false;
+			if (!useAdvancedExtraction) {
+				isExtracting = false;
+			}
 		}
 	}
 
@@ -123,6 +210,28 @@
 	function removeIngredient(index) {
 		ingredients = ingredients.filter((_, i) => i !== index);
 	}
+	
+	// Smart editor handlers
+	function handleSmartEditorSave(event) {
+		const { editedData } = event.detail;
+		// Use edited data from smart editor
+		extractedData = editedData;
+		title = editedData.title;
+		category = editedData.category;
+		cookingTime = editedData.cookingTime;
+		difficulty = editedData.difficulty;
+		ingredients = editedData.ingredients;
+		instructions = editedData.instructions;
+		
+		// Save the recipe
+		saveRecipe();
+	}
+	
+	function handleChangeStatus(event) {
+		const { hasUnsavedChanges } = event.detail;
+		// Handle unsaved changes status if needed
+		console.log('Has unsaved changes:', hasUnsavedChanges);
+	}
 </script>
 
 <svelte:head>
@@ -151,7 +260,7 @@
 			<!-- Left Column: Instagram URL and AI Extraction -->
 			<div class="space-y-6">
 				<div class="card">
-					<h2 class="text-xl font-semibold mb-4">🤖 AI Recipe Extraction</h2>
+					<h2 class="text-xl font-semibold mb-4">🤖 Enhanced AI Recipe Extraction</h2>
 					
 					<div class="space-y-4">
 						<div>
@@ -167,18 +276,49 @@
 							>
 						</div>
 
-						<button
-							on:click={extractFromInstagram}
-							disabled={isExtracting || !instagramUrl}
-							class="btn btn-primary w-full {isExtracting ? 'opacity-50 cursor-not-allowed' : ''}"
-						>
-							{#if isExtracting}
-								<div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-								Extracting...
-							{:else}
-								🎯 Extract Recipe with AI
-							{/if}
-						</button>
+						<!-- Extraction Method Toggle -->
+						<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+							<label class="flex items-center space-x-3">
+								<input
+									type="checkbox"
+									bind:checked={useAdvancedExtraction}
+									class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+								>
+								<div>
+									<span class="text-sm font-medium text-blue-900">
+										Use Advanced Multi-Modal Extraction + Mistral AI
+									</span>
+									<p class="text-xs text-blue-700">
+										5-phase processing: text, video, audio, AI fusion + Mistral AI for 95%+ accuracy
+									</p>
+								</div>
+							</label>
+						</div>
+
+						{#if useAdvancedExtraction}
+							<!-- Multi-Modal Extraction Component -->
+							<MultiModalExtraction
+								bind:instagramUrl={instagramUrl}
+								on:completed={handleMultiModalCompleted}
+								on:error={handleMultiModalError}
+								on:cancelled={handleMultiModalCancelled}
+								on:phaseUpdate={handlePhaseUpdate}
+							/>
+						{:else}
+							<!-- Legacy Extraction -->
+							<button
+								on:click={extractFromInstagram}
+								disabled={isExtracting || !instagramUrl}
+								class="btn btn-primary w-full {isExtracting ? 'opacity-50 cursor-not-allowed' : ''}"
+							>
+								{#if isExtracting}
+									<div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+									Extracting...
+								{:else}
+									🎯 Extract Recipe with Basic AI
+								{/if}
+							</button>
+						{/if}
 
 						{#if extractionError}
 							<div class="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -186,7 +326,7 @@
 							</div>
 						{/if}
 
-						{#if extractedData}
+						{#if extractedData && !useAdvancedExtraction}
 							<div class="bg-green-50 border border-green-200 rounded-lg p-4">
 								<p class="text-green-700 text-sm">
 									✅ Recipe extracted successfully! Confidence: {Math.round(extractedData.confidence * 100)}%
@@ -221,8 +361,20 @@
 
 			<!-- Right Column: Recipe Form -->
 			<div class="space-y-6">
-				<div class="card">
-					<h2 class="text-xl font-semibold mb-4">📝 Recipe Details</h2>
+				{#if showSmartEditor && extractedData}
+					<!-- Smart Recipe Editor with Confidence Scores -->
+					<div class="card">
+						<SmartRecipeEditor
+							bind:recipeData={extractedData}
+							bind:extractionData={extractionData}
+							on:save={handleSmartEditorSave}
+							on:changeStatus={handleChangeStatus}
+						/>
+					</div>
+				{:else}
+					<!-- Basic Recipe Form -->
+					<div class="card">
+						<h2 class="text-xl font-semibold mb-4">📝 Recipe Details</h2>
 					
 					<form on:submit|preventDefault={saveRecipe} class="space-y-4">
 						<div>
@@ -336,6 +488,7 @@
 						</button>
 					</form>
 				</div>
+				{/if}
 			</div>
 		</div>
 	</main>

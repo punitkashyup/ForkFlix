@@ -1,0 +1,255 @@
+# 🎯 Claude Code Prompt: Multi-Modal Recipe Accuracy System
+
+## 📋 **PROJECT ENHANCEMENT BRIEF**
+
+**Objective**: Enhance the existing Instagram Recipe Manager with **multi-modal AI extraction** to dramatically improve recipe accuracy by combining text, visual, and audio analysis.
+
+**Current Problem**: Recipe extraction from Instagram posts is inaccurate because we only use basic text parsing. We need to combine multiple data sources for better results.
+
+**Target Accuracy**: Increase recipe extraction accuracy from ~40% to ~85%+ by using progressive enhancement approach.
+
+---
+
+## 🧠 **MULTI-MODAL EXTRACTION STRATEGY**
+
+### **Data Source Priority System**
+Create a layered extraction approach with two phases:
+
+**IMMEDIATE LAYER (Under 2 seconds)**
+- Source: Text Analysis from Title/Caption/Description
+- Accuracy: 60-70%
+- User Experience: Instant results that user can immediately review and edit
+
+**ENHANCED LAYER (15-30 seconds)**
+- Source: Video Frame Analysis + Audio Transcription + Advanced NLP
+- Accuracy: 85-95% 
+- User Experience: Background processing with progressive updates
+
+### **Progressive Enhancement User Flow**
+1. User pastes Instagram URL
+2. Show instant text-based extraction results within 2 seconds
+3. Allow user to review and edit while AI processes video in background
+4. Progressively update results as video/audio analysis completes
+5. Smart merge of enhanced results with any user edits
+6. Show confidence indicators for each extracted field
+
+---
+
+## 🔧 **TECHNICAL IMPLEMENTATION REQUIREMENTS**
+
+### **Backend Enhancement Strategy**
+
+**Create Multi-Modal Recipe Extractor Service**
+- Text-based extractor for immediate results
+- Video frame extractor for visual ingredient detection
+- Audio transcription extractor for cooking instructions
+- Data fusion engine to intelligently combine all sources
+
+**Required Free AI Models Integration**
+- Text Processing: Use BERT, BART, T5 models from Hugging Face
+- Computer Vision: Integrate ViT, DETR, food classification models
+- Audio Processing: Implement Whisper for speech-to-text
+- All models available free via Hugging Face API
+
+**New API Endpoints Needed**
+- Streaming extraction endpoint for real-time updates
+- Video frame analysis endpoint
+- Audio transcription endpoint  
+- Data fusion endpoint for combining sources
+
+### **Frontend Enhancement Strategy**
+
+**New UI Components Required**
+- Progressive extraction progress indicator
+- Confidence score displays for each field
+- Smart editing interface with AI suggestions
+- Video frame viewer showing analysis
+- Audio waveform visualization
+- Data source attribution panel
+
+**Enhanced User Experience Flow**
+- Immediate preview of text-based results
+- Background processing indicators
+- Real-time field updates as analysis completes
+- User override capabilities with smart merging
+- Confidence review before final save
+
+---
+
+## 🎨 **USER EXPERIENCE SPECIFICATIONS**
+
+### **Progressive Loading States Design**
+Create visual feedback for each extraction phase:
+
+**Phase 1: Analyzing Text (1-2 seconds)**
+- Icon: Document/text symbol
+- Message: "Reading caption and description..."
+- Progress: 25%
+
+**Phase 2: Processing Video (10-15 seconds)** 
+- Icon: Video/camera symbol
+- Message: "Analyzing video frames for ingredients..."
+- Progress: 65%
+
+**Phase 3: Extracting Audio (5-10 seconds)**
+- Icon: Audio/microphone symbol  
+- Message: "Transcribing cooking instructions..."
+- Progress: 85%
+
+**Phase 4: Fusing Data (2-3 seconds)**
+- Icon: Brain/merge symbol
+- Message: "Combining all sources for best results..."
+- Progress: 100%
+
+### **Smart Editing Interface Design**
+For each recipe field (name, ingredients, instructions), create:
+- Current extracted value display
+- Confidence score indicator (color-coded)
+- AI alternative suggestions
+- Source attribution (text/visual/audio/user-edited)
+- Easy user override functionality
+- Smart merge notifications when new data arrives
+
+---
+
+## 🔬 **DATA FUSION ALGORITHM STRATEGY**
+
+### **Confidence-Based Merging Logic**
+Create intelligent algorithm to combine multiple extraction sources:
+- Prioritize user edits over all AI suggestions
+- Weight AI results by confidence scores
+- Handle conflicts between different sources intelligently
+- Provide transparency about data source for each field
+
+### **Conflict Resolution Rules**
+Define clear rules for handling conflicting data:
+- Recipe Name: Prefer text if high confidence, otherwise use visual
+- Ingredients: Union all sources with smart deduplication
+- Cooking Time: Prefer explicit text mentions, fallback to visual estimation
+- Instructions: Merge in chronological order from all sources
+- Dietary Info: Only include if multiple sources agree
+
+---
+
+## 📊 **VIDEO FRAME ANALYSIS STRATEGY**
+
+### **Smart Frame Sampling Approach**
+Extract video frames strategically based on cooking video patterns:
+- Ingredient preparation scenes (beginning 30% of video)
+- Active cooking process (middle 50% of video)
+- Final dish presentation (final 20% of video)
+
+### **Multi-Model Ingredient Detection**
+Implement layered computer vision approach:
+- Object detection to find ingredient regions in frames
+- Classification to identify specific ingredients
+- OCR for any visible text/measurements
+- Confidence scoring for detection reliability
+- Smart deduplication across multiple frames
+
+---
+
+## 🎧 **AUDIO PROCESSING STRATEGY**
+
+### **Speech-to-Text for Cooking Instructions**
+Process Instagram reel audio tracks:
+- Extract audio from video files
+- Transcribe speech using Whisper model (free via Hugging Face)
+- Filter transcription for cooking-related content
+- Extract step-by-step instructions from speech
+- Identify cooking verbs, time indicators, temperature mentions
+
+### **Audio Content Filtering**
+Use NLP to identify cooking-relevant speech:
+- Cooking action words: add, mix, cook, heat, stir, etc.
+- Time indicators: "for 5 minutes", "until golden brown"
+- Temperature mentions: "medium heat", "350 degrees"
+- Ingredient mentions that match visual detection
+
+---
+
+## 🎯 **IMPLEMENTATION PHASES**
+
+### **Phase 1: Enhanced Text Processing**
+- Implement advanced NLP models for better text extraction
+- Create confidence scoring system for text-based results
+- Build progressive loading UI components
+- Add real-time streaming extraction API
+
+### **Phase 2: Video Frame Analysis**
+- Implement strategic video frame sampling
+- Integrate computer vision models for ingredient detection
+- Create visual frame analysis feedback in UI
+- Build confidence reporting for visual detection
+
+### **Phase 3: Audio Transcription Integration**
+- Integrate Whisper for speech-to-text processing
+- Build cooking instruction extraction from audio
+- Create audio processing UI with progress indicators
+- Implement audio-based confidence scoring
+
+### **Phase 4: Data Fusion Engine**
+- Build intelligent merging algorithm for multi-modal data
+- Create conflict resolution system with clear rules
+- Implement user override and smart editing interface
+- Add comprehensive confidence reporting and transparency
+
+### **Phase 5: User Experience Polish**
+- Optimize extraction speed and processing efficiency
+- Add smart suggestions and auto-correction features
+- Implement user feedback learning system
+- Create detailed analytics and accuracy tracking
+
+---
+
+## 📈 **SUCCESS METRICS AND TARGETS**
+
+### **Accuracy Improvement Goals**
+- Recipe Name Extraction: Improve from 70% to 90%+ accuracy
+- Ingredient Completeness: Improve from 50% to 85%+ 
+- Instruction Accuracy: Improve from 30% to 75%+
+- Cooking Time Detection: Improve from 45% to 80%+
+
+### **User Experience Metrics**
+- Time to First Result: Under 2 seconds for text-based preview
+- Complete Multi-Modal Extraction: Under 30 seconds total
+- User Edit Rate: Less than 20% of fields need user correction
+- User Satisfaction: Target 4.5+ star rating with accuracy improvements
+
+### **Technical Performance Targets**
+- API Response Time: Under 2 seconds for initial text extraction
+- Background Processing: Complete video/audio analysis within 30 seconds
+- Confidence Accuracy: 90%+ correlation between confidence scores and actual accuracy
+- System Reliability: 99%+ uptime for extraction services
+
+---
+
+## 🚀 **IMPLEMENTATION REQUIREMENTS**
+
+### **Critical Success Factors**
+1. **Maintain Existing Functionality**: Enhance current system without breaking existing features
+2. **Progressive Enhancement**: Always show quick results first, then improve them
+3. **User Control**: Allow users to edit and override AI at any point
+4. **Transparency**: Show confidence scores and data sources clearly
+5. **Performance**: Keep total extraction time under 30 seconds
+6. **Cost Efficiency**: Use only free tier AI models and services
+
+### **Quality Assurance Requirements**
+- Test with diverse Instagram recipe content (different languages, video styles, audio quality)
+- Validate accuracy improvements with real user testing
+- Ensure graceful fallbacks when video/audio processing fails
+- Implement comprehensive error handling and user feedback
+- Create detailed logging for accuracy tracking and improvement
+
+### **Deployment Considerations**
+- Maintain compatibility with existing database schema
+- Ensure scalable processing for multiple concurrent extractions
+- Implement proper caching for repeated URL processing
+- Add monitoring and analytics for extraction performance
+- Plan for gradual rollout with A/B testing capabilities
+
+---
+
+## 🎯 **EXPECTED OUTCOME**
+
+Create a significantly more accurate recipe extraction system that intelligently combines text analysis, computer vision, and audio transcription while maintaining excellent user experience through progressive loading, smart editing capabilities, and transparent confidence reporting. The system should feel fast and reliable while dramatically improving extraction accuracy across all recipe fields.

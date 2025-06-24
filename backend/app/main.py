@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from app.api.v1 import recipes, instagram, ai, auth, proxy
+from app.api.v1 import recipes, instagram, ai, auth, proxy, multimodal_extraction
 from app.core.config import settings
 from app.core.database import firebase_service
 from app.schemas.responses import HealthCheckResponse
@@ -84,6 +84,12 @@ app.include_router(
     proxy.router,
     prefix=f"{settings.api_v1_prefix}/proxy",
     tags=["proxy"]
+)
+
+app.include_router(
+    multimodal_extraction.router,
+    prefix=f"{settings.api_v1_prefix}/multimodal",
+    tags=["multimodal-extraction"]
 )
 
 # Root endpoint

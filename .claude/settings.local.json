@@ -22,7 +22,17 @@
       "Bash(pip install:*)",
       "Bash(find:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(yt-dlp:*)",
+      "Bash(sudo apt-get:*)",
+      "Bash(sudo apt-get install:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(rg:*)",
+      "Bash(mv:*)",
+      "Bash(npm run check:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }
