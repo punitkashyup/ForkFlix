@@ -25,6 +25,7 @@ passlib[bcrypt]>=1.7.4
 # Image and video processing
 pillow>=10.0.0
 opencv-python>=4.8.0
+bs4
 
 # AI/ML libraries
 transformers>=4.35.0

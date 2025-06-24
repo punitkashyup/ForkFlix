@@ -36,39 +36,6 @@ class RateLimitError(InstagramServiceError):
 class InstagramService:
     def __init__(self):
         self.client = None
-        self.access_token = None
-    
-    async def _get_access_token(self) -> Optional[str]:
-        """Get access token for Instagram API"""
-        # Priority order: explicit token > Facebook app token > generate from app credentials
-        if settings.instagram_access_token:
-            return settings.instagram_access_token
-        
-        if settings.facebook_app_access_token:
-            return settings.facebook_app_access_token
-        
-        # Generate app access token if we have app credentials
-        if settings.facebook_app_id and settings.facebook_app_secret:
-            try:
-                if not self.client:
-                    self.client = httpx.AsyncClient(timeout=30.0)
-                
-                url = "https://graph.facebook.com/oauth/access_token"
-                params = {
-                    "client_id": settings.facebook_app_id,
-                    "client_secret": settings.facebook_app_secret,
-                    "grant_type": "client_credentials"
-                }
-                
-                response = await self.client.get(url, params=params)
-                if response.status_code == 200:
-                    data = response.json()
-                    self.access_token = data.get("access_token")
-                    return self.access_token
-            except Exception as e:
-                logger.warning(f"Failed to generate app access token: {e}")
-        
-        return None
     
     async def validate_url(self, url: str) -> Dict[str, Any]:
         """Validate Instagram URL"""
@@ -113,59 +80,13 @@ class InstagramService:
             }
     
     async def get_embed_code(self, url: str, max_width: Optional[int] = None) -> Dict[str, Any]:
-        """Get Instagram embed code using oEmbed API"""
+        """Get Instagram embed code by scraping page metadata"""
         try:
-            if not self.client:
-                self.client = httpx.AsyncClient(timeout=30.0)
+            # Get metadata first to extract thumbnail
+            metadata = await self._extract_metadata_from_page(url)
             
-            # Instagram oEmbed API endpoint
-            oembed_url = "https://graph.facebook.com/v18.0/instagram_oembed"
-            
-            # Get access token
-            access_token = await self._get_access_token()
-            
-            params = {
-                "url": url,
-                "omitscript": False
-            }
-            
-            if access_token:
-                params["access_token"] = access_token
-            
-            if max_width:
-                params["maxwidth"] = max_width
-            
-            response = await self.client.get(oembed_url, params=params)
-            
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "embedCode": data.get("html", ""),
-                    "width": data.get("width", max_width or 540),
-                    "height": data.get("height", 540),
-                    "thumbnailUrl": data.get("thumbnail_url")
-                }
-            elif response.status_code == 400:
-                raise InvalidUrlError("Invalid Instagram URL")
-            elif response.status_code == 404:
-                raise ContentNotFoundError("Instagram content not found")
-            elif response.status_code == 429:
-                raise RateLimitError("Rate limit exceeded")
-            else:
-                # Fallback to basic embed without oEmbed API
-                logger.warning(f"oEmbed API failed with status {response.status_code}, using fallback")
-                return await self._get_fallback_embed(url, max_width)
-            
-        except (httpx.RequestError, httpx.TimeoutException) as e:
-            logger.warning(f"Network error with Instagram oEmbed API: {e}, using fallback")
-            return await self._get_fallback_embed(url, max_width)
-        except Exception as e:
-            logger.error(f"Error getting Instagram embed: {e}")
-            raise InstagramServiceError(f"Failed to get embed code: {str(e)}")
-    
-    async def _get_fallback_embed(self, url: str, max_width: Optional[int] = None) -> Dict[str, Any]:
-        """Fallback embed method when oEmbed API is not available"""
-        embed_html = f'''<blockquote class="instagram-media" data-instgrm-captioned data-instgrm-permalink="{url}" data-instgrm-version="14">
+            # Generate embed code
+            embed_html = f'''<blockquote class="instagram-media" data-instgrm-captioned data-instgrm-permalink="{url}" data-instgrm-version="14">
     <div style="padding:16px;">
         <a href="{url}" style="background:#FFFFFF; line-height:0; padding:0 0; text-align:center; text-decoration:none; width:100%;" target="_blank">
             <div style="display: flex; flex-direction: row; align-items: center;">
@@ -194,57 +115,91 @@ class InstagramService:
     </div>
 </blockquote>
 <script async src="//www.instagram.com/embed.js"></script>'''
-        
-        return {
-            "embedCode": embed_html,
-            "width": max_width or 540,
-            "height": 540,
-            "thumbnailUrl": None
-        }
+            
+            return {
+                "embedCode": embed_html,
+                "width": max_width or 540,
+                "height": 540,
+                "thumbnailUrl": metadata.get("thumbnailUrl")
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting Instagram embed: {e}")
+            raise InstagramServiceError(f"Failed to get embed code: {str(e)}")
     
-    async def get_metadata(self, url: str) -> Dict[str, Any]:
-        """Get Instagram post metadata"""
+    
+    async def _extract_metadata_from_page(self, url: str) -> Dict[str, Any]:
+        """Extract metadata from Instagram page using BeautifulSoup approach"""
         try:
             if not self.client:
                 self.client = httpx.AsyncClient(timeout=30.0)
             
-            # Try to get oEmbed data first
-            oembed_url = "https://graph.facebook.com/v18.0/instagram_oembed"
-            
-            # Get access token
-            access_token = await self._get_access_token()
-            
-            params = {
-                "url": url,
-                "omitscript": False
+            headers = {
+                'User-Agent': 'Mozilla/5.0'
             }
             
-            if access_token:
-                params["access_token"] = access_token
+            response = await self.client.get(url, headers=headers)
+            if response.status_code != 200:
+                logger.warning(f"Failed to load Instagram page: {response.status_code}")
+                return {}
             
-            try:
-                response = await self.client.get(oembed_url, params=params)
-                if response.status_code == 200:
-                    data = response.json()
-                    embed_data = {
-                        "embedCode": data.get("html", ""),
-                        "width": data.get("width", 540),
-                        "height": data.get("height", 540),
-                        "thumbnailUrl": data.get("thumbnail_url")
-                    }
-                else:
-                    embed_data = await self._get_fallback_embed(url)
-            except:
-                embed_data = await self._get_fallback_embed(url)
+            # Parse HTML content
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Extract basic metadata from the URL
+            # Extract Open Graph metadata
+            thumbnail_tag = soup.find('meta', property='og:image')
+            title_tag = soup.find('meta', property='og:title')
+            description_tag = soup.find('meta', property='og:description')
+            
+            # Also try Twitter card metadata as fallback
+            if not thumbnail_tag:
+                thumbnail_tag = soup.find('meta', {'name': 'twitter:image'})
+            if not title_tag:
+                title_tag = soup.find('meta', {'name': 'twitter:title'})
+            if not description_tag:
+                description_tag = soup.find('meta', {'name': 'twitter:description'})
+            
+            return {
+                'thumbnailUrl': thumbnail_tag.get('content') if thumbnail_tag else None,
+                'title': title_tag.get('content') if title_tag else None,
+                'description': description_tag.get('content') if description_tag else None
+            }
+            
+        except Exception as e:
+            logger.error(f"Error extracting metadata from Instagram page: {e}")
+            return {}
+    
+    async def _try_get_thumbnail(self, url: str) -> Optional[str]:
+        """Try to get thumbnail URL from Instagram post"""
+        try:
+            metadata = await self._extract_metadata_from_page(url)
+            return metadata.get('thumbnailUrl')
+        except Exception as e:
+            logger.debug(f"Could not extract thumbnail from {url}: {e}")
+            return None
+    
+    async def get_metadata(self, url: str) -> Dict[str, Any]:
+        """Get Instagram post metadata using page scraping"""
+        try:
+            # Extract metadata from the page
+            page_metadata = await self._extract_metadata_from_page(url)
+            
+            # Extract username from URL
             author_name = self._extract_username_from_url(url)
+            
+            # Get embed code
+            embed_data = await self.get_embed_code(url)
+            
+            # Use extracted title and description if available, otherwise use defaults
+            title = page_metadata.get('title') or f"Instagram Recipe from @{author_name}"
+            description = page_metadata.get('description') or "A recipe shared on Instagram. Perfect for food lovers!"
             
             return {
                 "url": url,
-                "title": f"Instagram Recipe from @{author_name}",
-                "description": "A recipe shared on Instagram. Perfect for food lovers!",
-                "thumbnailUrl": embed_data.get("thumbnailUrl"),
+                "title": title,
+                "description": description,
+                "thumbnailUrl": page_metadata.get('thumbnailUrl'),
                 "authorName": author_name,
                 "authorUrl": f"https://www.instagram.com/{author_name}/",
                 "embedCode": embed_data["embedCode"],
