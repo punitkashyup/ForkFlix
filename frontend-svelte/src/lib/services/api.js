@@ -101,6 +101,12 @@ class ApiService {
 			body: JSON.stringify({ url, maxWidth })
 		});
 	}
+
+	async getInstagramMetadata(url) {
+		// Use the full URL as path parameter - FastAPI will handle it with {url:path}
+		const cleanUrl = url.startsWith('http') ? url.substring(url.indexOf('://') + 3) : url;
+		return this.request(`/api/v1/instagram/metadata/${cleanUrl}`);
+	}
 }
 
 export const apiService = new ApiService();

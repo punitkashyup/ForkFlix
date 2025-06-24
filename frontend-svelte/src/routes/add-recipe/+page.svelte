@@ -9,6 +9,8 @@
 	let isExtracting = false;
 	let extractionError = '';
 	let embedCode = '';
+	let thumbnailUrl = '';
+	let metadata = null;
 	
 	// Form fields for manual input
 	let title = '';
@@ -40,6 +42,14 @@
 			if (!validation.isValid) {
 				extractionError = validation.message;
 				return;
+			}
+
+			// Get metadata (including thumbnail)
+			try {
+				metadata = await apiService.getInstagramMetadata(instagramUrl);
+				thumbnailUrl = metadata.thumbnailUrl || '';
+			} catch (err) {
+				console.warn('Failed to get metadata:', err);
 			}
 
 			// Get embed code
@@ -88,6 +98,7 @@
 				ingredients: ingredients.filter(i => i.trim()),
 				instructions: instructions.trim(),
 				embedCode,
+				thumbnailUrl,
 				aiExtracted: !!extractedData,
 				isPublic: false
 			};
@@ -182,6 +193,21 @@
 						{/if}
 					</div>
 				</div>
+
+				<!-- Thumbnail Preview -->
+				{#if thumbnailUrl}
+					<div class="card">
+						<h3 class="text-lg font-semibold mb-4">🖼️ Recipe Thumbnail</h3>
+						<img 
+							src={thumbnailUrl} 
+							alt="Recipe thumbnail"
+							class="w-full max-w-sm mx-auto rounded-lg shadow-sm"
+						>
+						<p class="text-sm text-gray-600 mt-2 text-center">
+							This thumbnail will be displayed in your recipe collection
+						</p>
+					</div>
+				{/if}
 
 				<!-- Instagram Embed Preview -->
 				{#if embedCode}
