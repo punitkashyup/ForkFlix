@@ -51,7 +51,8 @@ class ApiService {
 	}
 
 	async getRecipe(id) {
-		return this.request(`/api/v1/recipes/${id}`);
+		const response = await this.request(`/api/v1/recipes/${id}`);
+		return response.data; // Extract recipe from SuccessResponse.data
 	}
 
 	async createRecipe(data) {

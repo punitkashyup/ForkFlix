@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     
     # API configuration
     api_v1_prefix: str = "/api/v1"
+    backend_url: str = Field(default="http://localhost:8000", env="BACKEND_URL")
     cors_origins: Union[str, List[str]] = Field(
         default="http://localhost:3000,http://127.0.0.1:3000",
         env="CORS_ORIGINS"
