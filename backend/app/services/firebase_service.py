@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from google.cloud.firestore import Query
+from google.cloud.firestore import Query, FieldFilter
 from firebase_admin import firestore
 from app.core.database import get_firestore_db
 from app.models.recipe import Recipe, RecipeCategory
@@ -27,8 +27,8 @@ class FirebaseService:
         try:
             db = self._get_db()
             if not db:
-                logger.warning("Firestore not available, using mock ID")
-                return "mock_recipe_id"
+                logger.error("Firestore not available")
+                raise Exception("Database connection failed")
             
             # Add timestamp
             recipe_data['createdAt'] = datetime.utcnow()
@@ -53,8 +53,8 @@ class FirebaseService:
         try:
             db = self._get_db()
             if not db:
-                logger.warning("Firestore not available, returning mock data")
-                return self._get_mock_recipe(recipe_id)
+                logger.error("Firestore not available")
+                return None
             
             doc_ref = db.collection('recipes').document(recipe_id)
             doc = doc_ref.get()
@@ -80,8 +80,8 @@ class FirebaseService:
         try:
             db = self._get_db()
             if not db:
-                logger.warning("Firestore not available, simulating update")
-                return True
+                logger.error("Firestore not available")
+                return False
             
             doc_ref = db.collection('recipes').document(recipe_id)
             doc = doc_ref.get()
@@ -109,8 +109,8 @@ class FirebaseService:
         try:
             db = self._get_db()
             if not db:
-                logger.warning("Firestore not available, simulating delete")
-                return True
+                logger.error("Firestore not available")
+                return False
             
             doc_ref = db.collection('recipes').document(recipe_id)
             doc = doc_ref.get()
@@ -143,35 +143,33 @@ class FirebaseService:
         try:
             db = self._get_db()
             if not db:
-                logger.warning("Firestore not available, returning mock data")
-                return self._get_mock_recipe_list(query_params)
+                logger.error("Firestore not available")
+                return PaginatedRecipeResponse(
+                    items=[],
+                    total=0,
+                    page=query_params.page,
+                    limit=query_params.limit,
+                    pages=1,
+                    hasNext=False,
+                    hasPrev=False
+                )
             
             collection_ref = db.collection('recipes')
+            
+            # Start with base query
             query = collection_ref
             
-            # Apply filters
-            if query_params.public_only:
-                query = query.where('isPublic', '==', True)
-            elif user_id:
-                # Show user's own recipes + public recipes
-                # This requires a compound query - for simplicity, we'll do user's recipes first
-                query = query.where('userId', '==', user_id)
-            
-            if query_params.category:
-                query = query.where('category', '==', query_params.category.value)
-            
-            if query_params.difficulty:
-                query = query.where('difficulty', '==', query_params.difficulty.value)
-            
-            # Search functionality (limited in Firestore)
-            if query_params.search:
-                # For full-text search, you'd typically use Algolia or similar
-                # Here we'll do a simple title search
-                search_term = query_params.search.lower()
-                query = query.where('title', '>=', search_term).where('title', '<=', search_term + '\uf8ff')
+            # Add user filter if provided and not requesting public only
+            if user_id and not query_params.public_only:
+                query = query.where(filter=FieldFilter('userId', '==', user_id))
+            elif query_params.public_only:
+                query = query.where(filter=FieldFilter('isPublic', '==', True))
             
             # Order by creation date (newest first)
-            query = query.order_by('createdAt', direction=firestore.Query.DESCENDING)
+            try:
+                query = query.order_by('createdAt', direction=firestore.Query.DESCENDING)
+            except Exception as e:
+                logger.warning(f"Order by failed, using default order: {e}")
             
             # Get total count (for pagination)
             total_docs = len(list(query.stream()))
@@ -191,7 +189,7 @@ class FirebaseService:
                 recipes.append(recipe_data)
             
             # Calculate pagination metadata
-            total_pages = max(1, (total_docs + query_params.limit - 1) // query_params.limit)
+            total_pages = max(1, (total_docs + query_params.limit - 1) // query_params.limit) if total_docs > 0 else 1
             has_next = query_params.page < total_pages and total_docs > 0
             has_prev = query_params.page > 1
             
@@ -298,11 +296,11 @@ class FirebaseService:
             collection_ref = self.db.collection('recipes')
             
             # Search in title
-            title_query = collection_ref.where('title', '>=', search_term).where('title', '<=', search_term + '\uf8ff')
+            title_query = collection_ref.where(filter=FieldFilter('title', '>=', search_term)).where(filter=FieldFilter('title', '<=', search_term + '\uf8ff'))
             title_results = list(title_query.stream())
             
             # Search in tags (array contains)
-            tag_query = collection_ref.where('tags', 'array_contains', search_term)
+            tag_query = collection_ref.where(filter=FieldFilter('tags', 'array_contains', search_term))
             tag_results = list(tag_query.stream())
             
             # Combine results and remove duplicates
@@ -321,39 +319,6 @@ class FirebaseService:
             logger.error(f"Error searching recipes: {e}")
             raise
     
-    def _get_mock_recipe(self, recipe_id: str) -> Dict[str, Any]:
-        """Return mock recipe data for development"""
-        return {
-            "id": recipe_id,
-            "userId": "mock_user",
-            "title": "Mock Recipe",
-            "instagramUrl": "https://www.instagram.com/p/mock123/",
-            "category": "Main Course",
-            "cookingTime": 30,
-            "difficulty": "Easy",
-            "ingredients": ["ingredient1", "ingredient2"],
-            "instructions": "Mock instructions",
-            "tags": ["mock", "recipe"],
-            "dietaryInfo": [],
-            "isPublic": True,
-            "likes": 0,
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow()
-        }
-    
-    def _get_mock_recipe_list(self, query_params: RecipeListQuery) -> PaginatedRecipeResponse:
-        """Return mock recipe list for development"""
-        mock_recipes = [self._get_mock_recipe(f"mock_{i}") for i in range(query_params.limit)]
-        
-        return PaginatedRecipeResponse(
-            items=mock_recipes,
-            total=query_params.limit,
-            page=query_params.page,
-            limit=query_params.limit,
-            pages=1,
-            hasNext=False,
-            hasPrev=False
-        )
 
 
 # Global instance
