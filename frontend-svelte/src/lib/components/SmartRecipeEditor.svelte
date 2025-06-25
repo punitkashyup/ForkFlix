@@ -22,7 +22,23 @@
   }
   
   function getFieldConfidence(fieldName) {
-    return extractionData?.field_confidence?.[fieldName]?.score || 0.5;
+    // Try to get field-specific confidence first
+    if (extractionData?.field_confidence?.[fieldName]?.score) {
+      return extractionData.field_confidence[fieldName].score;
+    }
+    
+    // Fallback to overall confidence from the extraction
+    if (extractionData?.confidence) {
+      return extractionData.confidence;
+    }
+    
+    // Fallback to recipe data confidence
+    if (recipeData?.confidence) {
+      return recipeData.confidence;
+    }
+    
+    // Last resort default
+    return 0.7;
   }
   
   function getConfidenceColor(confidence) {

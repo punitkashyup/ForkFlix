@@ -176,7 +176,13 @@
 	}
 
 	async function saveRecipe() {
-		if (!title || ingredients.filter(i => i.trim()).length === 0) {
+		// Use current form values or extracted data
+		const currentTitle = title || extractedData?.title;
+		const currentIngredients = ingredients.length > 0 && ingredients.some(i => i.trim()) 
+			? ingredients 
+			: extractedData?.ingredients || [];
+		
+		if (!currentTitle || currentIngredients.filter(i => i.trim()).length === 0) {
 			extractionError = 'Please provide a title and at least one ingredient';
 			return;
 		}
@@ -186,19 +192,27 @@
 			
 			const recipeData = {
 				instagramUrl,
-				title: title.trim(),
-				category,
-				cookingTime: parseInt(cookingTime),
-				difficulty,
-				ingredients: ingredients.filter(i => i.trim()),
-				instructions: instructions.trim(),
+				title: currentTitle.trim(),
+				category: category || extractedData?.category,
+				cookingTime: parseInt(cookingTime || extractedData?.cookingTime || 30),
+				difficulty: difficulty || extractedData?.difficulty || 'Medium',
+				ingredients: currentIngredients.filter(i => i.trim()),
+				instructions: (instructions || extractedData?.instructions || '').trim(),
 				embedCode,
 				thumbnailUrl,
 				aiExtracted: !!extractedData,
-				isPublic: false
+				isPublic: false,
+				// Add extraction metadata
+				extractionMethod: extractedData?._extractionMethod,
+				confidence: extractedData?.confidence
 			};
 
 			await apiService.createRecipe(recipeData);
+			
+			// Show success message before redirect
+			extractionError = '';
+			alert('🎉 Recipe saved successfully! Redirecting to your collection...');
+			
 			goto('/'); // Redirect to home after successful creation
 			
 		} catch (err) {
@@ -383,8 +397,8 @@
 		</div>
 	</header>
 
-	<main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-		<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 			<!-- Left Column: Instagram URL and AI Extraction -->
 			<div class="space-y-6">
 				<div class="card">
@@ -590,13 +604,43 @@
 							on:save={handleSmartEditorSave}
 							on:changeStatus={handleChangeStatus}
 						/>
+						
+						<!-- Prominent Save Button Always Visible -->
+						<div class="mt-6 pt-6 border-t border-gray-200">
+							<div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+								<div class="flex items-center">
+									<div class="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+										<span class="text-green-600">✓</span>
+									</div>
+									<div class="ml-3">
+										<h4 class="text-sm font-medium text-green-800">Recipe extraction completed!</h4>
+										<p class="text-sm text-green-700">Review the details above and save your recipe when ready.</p>
+									</div>
+								</div>
+							</div>
+							
+							<button
+								on:click={() => saveRecipe()}
+								disabled={$loading}
+								class="btn btn-primary w-full text-lg py-4 {$loading ? 'opacity-50 cursor-not-allowed' : ''}"
+							>
+								{#if $loading}
+									<div class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+								{/if}
+								💾 Save Recipe to Collection
+							</button>
+							
+							<p class="text-center text-sm text-gray-600 mt-3">
+								You can always edit the recipe details above before saving
+							</p>
+						</div>
 					</div>
 				{:else}
 					<!-- Basic Recipe Form -->
 					<div class="card">
 						<h2 class="text-xl font-semibold mb-4">📝 Recipe Details</h2>
 					
-					<form on:submit|preventDefault={saveRecipe} class="space-y-4">
+					<form on:submit|preventDefault={saveRecipe} class="form-tablet">
 						<div>
 							<label for="title" class="block text-sm font-medium text-gray-700 mb-2">
 								Recipe Title *
@@ -611,7 +655,7 @@
 							>
 						</div>
 
-						<div class="grid grid-cols-2 gap-4">
+						<div class="form-group-tablet">
 							<div>
 								<label for="category" class="block text-sm font-medium text-gray-700 mb-2">
 									Category

@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { apiService } from '$lib/services/api.js';
+  import LottieLoader from './LottieLoader.svelte';
   
   const dispatch = createEventDispatcher();
   
@@ -75,6 +76,7 @@
   let error = null;
   let eventSource = null;
   let startTime = null;
+  let timeoutId = null;
   
   async function startExtraction() {
     if (!instagramUrl) {
@@ -99,6 +101,15 @@
     currentPhase = 1;
     startTime = Date.now();
     
+    // Set timeout for extraction (5 minutes max)
+    timeoutId = setTimeout(() => {
+      if (isExtracting) {
+        error = 'Extraction timed out. Please try again with a shorter video or check your connection.';
+        isExtracting = false;
+        dispatch('error', { error: error });
+      }
+    }, 5 * 60 * 1000);
+    
     // Reset all phases
     extractionPhases = extractionPhases.map(phase => ({
       ...phase,
@@ -108,42 +119,127 @@
       confidence: 0
     }));
     
-    try {
-      // Start streaming extraction using API service
-      const response = await apiService.startMultiModalExtraction({
-        instagram_url: instagramUrl,
-        enable_visual_analysis: enableVisualAnalysis,
-        enable_audio_transcription: enableAudioTranscription,
-        max_processing_time: maxProcessingTime
-      });
-      
-      // Set up Server-Sent Events
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    // Add retry logic for streaming
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        console.log(`🚀 Starting extraction attempt ${retryCount + 1}/${maxRetries + 1}`);
         
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // Start streaming extraction using API service
+        const response = await apiService.startMultiModalExtraction({
+          instagram_url: instagramUrl,
+          enable_visual_analysis: enableVisualAnalysis,
+          enable_audio_transcription: enableAudioTranscription,
+          max_processing_time: maxProcessingTime
+        });
         
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              handleExtractionUpdate(data);
-            } catch (e) {
-              console.error('Error parsing SSE data:', e);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Set up Server-Sent Events
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        
+        console.log('📡 Streaming connection established, processing data...');
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          
+          // Keep the last incomplete line in buffer
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const jsonData = line.slice(6);
+                if (jsonData.trim()) {
+                  const data = JSON.parse(jsonData);
+                  handleExtractionUpdate(data);
+                }
+              } catch (e) {
+                console.error('Error parsing SSE data:', e, 'Line:', line);
+              }
             }
           }
         }
+        
+        // If we get here, streaming completed successfully
+        console.log('✅ Streaming completed successfully');
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        return;
+        
+      } catch (err) {
+        retryCount++;
+        console.error(`❌ Extraction attempt ${retryCount} failed:`, err);
+        
+        if (retryCount > maxRetries) {
+          console.log('🔄 Streaming failed, attempting fallback to batch extraction...');
+          
+          try {
+            // Fallback to batch extraction
+            const batchResult = await apiService.batchMultiModalExtraction({
+              instagram_url: instagramUrl,
+              enable_visual_analysis: enableVisualAnalysis,
+              enable_audio_transcription: enableAudioTranscription,
+              max_processing_time: maxProcessingTime
+            });
+            
+            if (batchResult.success) {
+              console.log('✅ Batch extraction completed successfully');
+              finalResult = batchResult.data.recipe;
+              
+              // Simulate completion
+              handleExtractionUpdate({
+                event: 'extraction_completed',
+                phase: 4,
+                status: 'completed',
+                data: finalResult,
+                confidence: finalResult.confidence || 0.8
+              });
+              
+              isExtracting = false;
+              const totalTime = (Date.now() - startTime) / 1000;
+              dispatch('completed', { 
+                result: finalResult, 
+                totalTime: totalTime.toFixed(1) 
+              });
+              return;
+            }
+          } catch (batchError) {
+            console.error('❌ Batch extraction also failed:', batchError);
+          }
+          
+          error = `All extraction methods failed. Please try again later or check your internet connection.`;
+          isExtracting = false;
+          dispatch('error', { error: error });
+          return;
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const waitTime = Math.pow(2, retryCount) * 1000;
+        console.log(`⏳ Retrying in ${waitTime/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+        // Reset phases for retry
+        extractionPhases = extractionPhases.map(phase => ({
+          ...phase,
+          status: 'waiting',
+          progress: 0,
+          data: null,
+          confidence: 0
+        }));
       }
-      
-    } catch (err) {
-      error = err.message;
-      isExtracting = false;
-      dispatch('error', { error: err.message });
     }
   }
   
@@ -157,6 +253,10 @@
     
     if (data.event === 'extraction_completed') {
       isExtracting = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       const totalTime = (Date.now() - startTime) / 1000;
       dispatch('completed', { 
         result: finalResult, 
@@ -190,8 +290,10 @@
         }
       }
       
-      // Update overall progress
-      overallProgress = data.progress || 0;
+      // Calculate overall progress based on completed phases
+      const completedPhases = extractionPhases.filter(p => p.status === 'completed').length;
+      const currentPhaseProgress = data.progress || 0;
+      overallProgress = Math.round(((completedPhases * 100) + currentPhaseProgress) / extractionPhases.length);
       
       // Trigger reactivity
       extractionPhases = [...extractionPhases];
@@ -210,6 +312,10 @@
     if (eventSource) {
       eventSource.close();
       eventSource = null;
+    }
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
     }
     isExtracting = false;
     currentPhase = 0;
@@ -236,117 +342,81 @@
     if (eventSource) {
       eventSource.close();
     }
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   });
 </script>
 
 <div class="multimodal-extraction">
-  <div class="extraction-header">
-    <h3>Multi-Modal Recipe Extraction</h3>
-    <p class="extraction-description">
-      Advanced AI system that analyzes text, video, and audio to extract accurate recipe information
-    </p>
+  <!-- Compact Animated Progress Header -->
+  <div class="cooking-header">
+    <div class="cooking-animation">
+      {#if isExtracting}
+        <!-- Show specified Lottie animation when extracting -->
+        <div class="lottie-cooking">
+          <LottieLoader 
+            animationUrl="https://lottie.host/4f00edf8-40ff-4760-9032-2da56d2070af/GkBG1gfpsZ.lottie"
+            width={60}
+            height={60}
+            className="cooking-lottie"
+            speed={1.2}
+          />
+        </div>
+      {:else}
+        <!-- Show simple ready state icon when idle -->
+        <div class="ready-icon">🍴</div>
+      {/if}
+    </div>
+    <div class="cooking-title">
+      <h3>AI Recipe Extraction</h3>
+      <p class="cooking-subtitle">
+        {#if isExtracting}
+          Extracting delicious recipe details... {overallProgress}%
+        {:else}
+          Ready to transform your Instagram post into a recipe!
+        {/if}
+      </p>
+    </div>
   </div>
   
-  <!-- Overall Progress -->
+  <!-- Compact Progress Bar -->
   {#if isExtracting}
-    <div class="overall-progress">
-      <div class="progress-header">
-        <span class="progress-label">Overall Progress</span>
-        <span class="progress-percentage">{overallProgress}%</span>
-      </div>
-      <div class="progress-bar">
+    <div class="compact-progress">
+      <div class="progress-bar-modern">
         <div 
-          class="progress-fill" 
+          class="progress-fill-animated" 
           style="width: {overallProgress}%"
         ></div>
+        <div class="progress-text">{overallProgress}%</div>
       </div>
-      <div class="current-phase">
-        Currently: Phase {currentPhase} - {extractionPhases[currentPhase - 1]?.name}
+      <div class="current-step">
+        <span class="step-icon">{extractionPhases[currentPhase - 1]?.icon}</span>
+        <span class="step-text">{extractionPhases[currentPhase - 1]?.name}</span>
+        <span class="step-time">({extractionPhases[currentPhase - 1]?.estimatedTime})</span>
       </div>
     </div>
   {/if}
   
-  <!-- Extraction Phases -->
-  <div class="extraction-phases">
-    {#each extractionPhases as phase, index}
-      <div class="phase-card {getPhaseStatusClass(phase)}">
-        <div class="phase-header">
-          <div class="phase-icon">{phase.icon}</div>
-          <div class="phase-info">
-            <h4 class="phase-name">{phase.name}</h4>
-            <p class="phase-message">{phase.message}</p>
-            <span class="phase-time">{phase.estimatedTime}</span>
-          </div>
-          <div class="phase-status">
-            {#if phase.status === 'completed'}
-              <div class="status-icon completed">✓</div>
-              <div class="confidence-score {getConfidenceClass(phase.confidence)}">
-                {(phase.confidence * 100).toFixed(0)}%
-              </div>
-            {:else if phase.status === 'processing'}
-              <div class="status-icon processing">⟳</div>
-              <div class="phase-progress">{phase.progress}%</div>
-            {:else if phase.status === 'failed'}
-              <div class="status-icon failed">✗</div>
-            {:else}
-              <div class="status-icon waiting">○</div>
+  <!-- Compact Phase Indicators (Only show when extracting) -->
+  {#if isExtracting}
+    <div class="phase-indicators">
+      {#each extractionPhases as phase, index}
+        <div class="phase-dot {getPhaseStatusClass(phase)} {currentPhase === phase.phase ? 'active' : ''}">
+          <div class="phase-icon-small">{phase.icon}</div>
+          <div class="phase-tooltip">
+            <div class="tooltip-title">{phase.name}</div>
+            <div class="tooltip-time">{phase.estimatedTime}</div>
+            {#if phase.status === 'processing'}
+              <div class="tooltip-progress">{phase.progress}%</div>
+            {:else if phase.status === 'completed' && phase.confidence}
+              <div class="tooltip-confidence">{(phase.confidence * 100).toFixed(0)}% confidence</div>
             {/if}
           </div>
         </div>
-        
-        {#if phase.status === 'processing'}
-          <div class="phase-progress-bar">
-            <div 
-              class="phase-progress-fill" 
-              style="width: {phase.progress}%"
-            ></div>
-          </div>
-        {/if}
-        
-        {#if phase.data && phase.status === 'completed'}
-          <div class="phase-results">
-            <div class="results-summary">
-              {#if phase.data.recipe_data}
-                <!-- Phase 5: Mistral AI structured data -->
-                <div class="result-item">
-                  <strong>Recipe:</strong> {phase.data.recipe_data.recipe_name}
-                </div>
-                <div class="result-item">
-                  <strong>Ingredients:</strong> {phase.data.recipe_data.ingredients?.length || 0} items
-                </div>
-                <div class="result-item">
-                  <strong>Category:</strong> {phase.data.recipe_data.category}
-                </div>
-                {#if phase.data.recipe_data.cooking_time?.total_minutes}
-                  <div class="result-item">
-                    <strong>Total Time:</strong> {phase.data.recipe_data.cooking_time.total_minutes} min
-                  </div>
-                {/if}
-              {:else}
-                <!-- Other phases: traditional data -->
-                {#if phase.data.ingredients}
-                  <div class="result-item">
-                    <strong>Ingredients:</strong> {Array.isArray(phase.data.ingredients) ? phase.data.ingredients.slice(0, 3).join(', ') : phase.data.ingredients}
-                    {#if Array.isArray(phase.data.ingredients) && phase.data.ingredients.length > 3}+ {phase.data.ingredients.length - 3} more{/if}
-                  </div>
-                {/if}
-                {#if phase.data.category}
-                  <div class="result-item">
-                    <strong>Category:</strong> {phase.data.category}
-                  </div>
-                {/if}
-                {#if phase.data.cookingTime}
-                  <div class="result-item">
-                    <strong>Cooking Time:</strong> {phase.data.cookingTime} minutes
-                  </div>
-                {/if}
-              {/if}
-            </div>
-          </div>
-        {/if}
-      </div>
-    {/each}
-  </div>
+      {/each}
+    </div>
+  {/if}
   
   <!-- Control Buttons -->
   <div class="extraction-controls">
@@ -456,254 +526,231 @@
 
 <style>
   .multimodal-extraction {
-    max-width: 800px;
+    max-width: 600px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 24px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
   
-  .extraction-header {
-    text-align: center;
-    margin-bottom: 30px;
-  }
-  
-  .extraction-header h3 {
-    color: #2d3748;
-    margin-bottom: 8px;
-    font-size: 24px;
-    font-weight: 600;
-  }
-  
-  .extraction-description {
-    color: #64748b;
-    font-size: 14px;
-    margin: 0;
-  }
-  
-  .overall-progress {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
+  /* Cooking Header Styles */
+  .cooking-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
     padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    color: white;
     margin-bottom: 24px;
   }
   
-  .progress-header {
+  .cooking-animation {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .ready-icon {
+    font-size: 2rem;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+  }
+  
+  .lottie-cooking {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  :global(.cooking-lottie) {
+    filter: drop-shadow(0 2px 4px rgba(255, 255, 255, 0.3));
+  }
+  
+  .cooking-title h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  
+  .cooking-subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+  
+  /* Compact Progress Styles */
+  .compact-progress {
+    margin-bottom: 20px;
+  }
+  
+  .progress-bar-modern {
+    position: relative;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+  
+  .progress-fill-animated {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399, #6ee7b7);
+    border-radius: 6px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    animation: shimmer 2s infinite;
+  }
+  
+  .progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+  
+  .current-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: #374151;
+    background: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .step-icon {
+    font-size: 1.2rem;
+  }
+  
+  .step-text {
+    font-weight: 600;
+  }
+  
+  .step-time {
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+  
+  /* Phase Indicators */
+  .phase-indicators {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
-  }
-  
-  .progress-label {
-    font-weight: 600;
-    color: #374151;
-  }
-  
-  .progress-percentage {
-    font-weight: 700;
-    color: #0ea5e9;
-    font-size: 18px;
-  }
-  
-  .progress-bar {
-    width: 100%;
-    height: 8px;
-    background: #e2e8f0;
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 8px;
-  }
-  
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #0ea5e9, #3b82f6);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-  }
-  
-  .current-phase {
-    font-size: 12px;
-    color: #64748b;
-    font-style: italic;
-  }
-  
-  .extraction-phases {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 24px;
-  }
-  
-  .phase-card {
-    border: 2px solid #e2e8f0;
+    padding: 16px;
+    background: white;
     border-radius: 12px;
-    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    position: relative;
+  }
+  
+  .phase-indicators::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: #e5e7eb;
+    z-index: 1;
+  }
+  
+  .phase-dot {
+    position: relative;
+    z-index: 2;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border: 3px solid #e5e7eb;
     transition: all 0.3s ease;
+    cursor: pointer;
   }
   
-  .phase-card.phase-waiting {
-    background: #f8fafc;
-    border-color: #e2e8f0;
+  .phase-dot.phase-waiting {
+    background: #f9fafb;
+    border-color: #d1d5db;
   }
   
-  .phase-card.phase-processing {
+  .phase-dot.phase-processing {
     background: #fef3c7;
     border-color: #f59e0b;
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    animation: pulse 2s infinite;
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.2);
   }
   
-  .phase-card.phase-completed {
+  .phase-dot.phase-completed {
     background: #dcfce7;
     border-color: #22c55e;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
   }
   
-  .phase-card.phase-failed {
+  .phase-dot.phase-failed {
     background: #fee2e2;
     border-color: #ef4444;
   }
   
-  .phase-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+  .phase-dot.active {
+    transform: scale(1.1);
   }
   
-  .phase-icon {
-    font-size: 24px;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: white;
-    border-radius: 50%;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  .phase-icon-small {
+    font-size: 1.2rem;
   }
   
-  .phase-info {
-    flex: 1;
+  /* Tooltip Styles */
+  .phase-tooltip {
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    z-index: 10;
   }
   
-  .phase-name {
-    margin: 0 0 4px 0;
-    font-size: 16px;
+  .phase-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #1f2937;
+  }
+  
+  .phase-dot:hover .phase-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+  
+  .tooltip-title {
     font-weight: 600;
-    color: #374151;
+    margin-bottom: 2px;
   }
   
-  .phase-message {
-    margin: 0 0 4px 0;
-    font-size: 14px;
-    color: #64748b;
+  .tooltip-time, .tooltip-progress, .tooltip-confidence {
+    font-size: 0.65rem;
+    opacity: 0.8;
   }
   
-  .phase-time {
-    font-size: 12px;
-    color: #94a3b8;
-    font-style: italic;
-  }
-  
-  .phase-status {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .status-icon {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 14px;
-  }
-  
-  .status-icon.completed {
-    background: #22c55e;
-    color: white;
-  }
-  
-  .status-icon.processing {
-    background: #f59e0b;
-    color: white;
-    animation: spin 2s linear infinite;
-  }
-  
-  .status-icon.failed {
-    background: #ef4444;
-    color: white;
-  }
-  
-  .status-icon.waiting {
-    background: #e2e8f0;
-    color: #94a3b8;
-  }
-  
-  .confidence-score {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-  
-  .confidence-high {
-    background: #dcfce7;
-    color: #166534;
-  }
-  
-  .confidence-medium {
-    background: #fef3c7;
-    color: #92400e;
-  }
-  
-  .confidence-low {
-    background: #fed7d7;
-    color: #c53030;
-  }
-  
-  .confidence-very-low {
-    background: #f3f4f6;
-    color: #6b7280;
-  }
-  
-  .phase-progress-bar {
-    width: 100%;
-    height: 4px;
-    background: #e2e8f0;
-    border-radius: 2px;
-    overflow: hidden;
-    margin-top: 12px;
-  }
-  
-  .phase-progress-fill {
-    height: 100%;
-    background: #f59e0b;
-    border-radius: 2px;
-    transition: width 0.3s ease;
-  }
-  
-  .phase-results {
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid #e2e8f0;
-  }
-  
-  .results-summary {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .result-item {
-    font-size: 12px;
-    color: #374151;
-  }
-  
+  /* Button Styles */
   .extraction-controls {
     display: flex;
     justify-content: center;
@@ -763,6 +810,7 @@
     margin: 0;
   }
   
+  /* Error Message Styles */
   .error-message {
     background: #fee2e2;
     border: 1px solid #fecaca;
@@ -783,6 +831,7 @@
     font-weight: 500;
   }
   
+  /* Final Results Styles */
   .final-results {
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
@@ -820,24 +869,65 @@
     margin-top: 4px;
   }
   
+  .confidence-score {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  
+  .confidence-high {
+    background: #dcfce7;
+    color: #166534;
+  }
+  
+  .confidence-medium {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  
+  .confidence-low {
+    background: #fed7d7;
+    color: #c53030;
+  }
+  
+  .confidence-very-low {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  
+  /* Animations */
+  @keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-2px); }
+    75% { transform: translateX(2px); }
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: 200px 0; }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.05); opacity: 0.8; }
+  }
+  
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
   
+  /* Media Queries */
   @media (max-width: 640px) {
     .multimodal-extraction {
       padding: 16px;
-    }
-    
-    .phase-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-    }
-    
-    .phase-status {
-      align-self: flex-end;
     }
     
     .extraction-options {

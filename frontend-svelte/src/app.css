@@ -7,26 +7,103 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
   }
+  
+  /* Tablet optimizations for 13-inch screens ONLY */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    html {
+      font-size: 16px; /* Optimal base font size for tablets */
+    }
+    
+    body {
+      line-height: 1.6; /* Better readability on larger screens */
+    }
+    
+    /* Ensure minimum touch targets on tablets only */
+    button, a, input, select, textarea {
+      min-height: 44px;
+    }
+  }
+  
+  /* Desktop optimizations - keep normal sizing */
+  @media (min-width: 1024px) {
+    html {
+      font-size: 16px; /* Normal desktop font size */
+    }
+  }
 }
 
 @layer components {
+  /* Enhanced button classes with tablet optimizations */
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply tablet:px-6 tablet:py-3 tablet:text-lg;
+    @apply desktop:px-4 desktop:py-2 desktop:text-base; /* Reset to normal on desktop */
   }
   
   .btn-primary {
-    @apply bg-blue-600 text-white hover:bg-blue-700;
+    @apply bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
+    @apply focus:ring-4 focus:ring-blue-200; /* Better focus for touch devices */
   }
   
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300;
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 active:bg-gray-400;
+    @apply focus:ring-4 focus:ring-gray-200;
   }
   
+  /* Enhanced card classes with tablet spacing */
   .card {
     @apply bg-white rounded-lg shadow-md p-6;
+    @apply tablet:p-8 tablet:rounded-xl;
+    @apply desktop:p-6 desktop:rounded-lg; /* Reset to normal on desktop */
   }
   
+  /* Enhanced input classes with better touch targets */
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-md;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    @apply tablet:px-4 tablet:py-3 tablet:text-lg tablet:rounded-lg;
+    @apply desktop:px-3 desktop:py-2 desktop:text-base desktop:rounded-md; /* Reset to normal on desktop */
+  }
+  
+  /* Responsive text utilities */
+  .text-tablet-responsive {
+    @apply text-base tablet:text-lg desktop:text-base;
+  }
+  
+  .heading-tablet-responsive {
+    @apply text-2xl tablet:text-3xl desktop:text-2xl;
+  }
+  
+  /* Grid optimizations for tablets only */
+  .grid-tablet-cols-1 {
+    @apply grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-3;
+  }
+  
+  .grid-tablet-cols-2 {
+    @apply grid-cols-1 tablet:grid-cols-2 desktop:grid-cols-4;
+  }
+  
+  /* Touch-friendly spacing utilities - reset on desktop */
+  .gap-tablet {
+    @apply gap-4 tablet:gap-6 desktop:gap-6;
+  }
+  
+  .space-y-tablet > * + * {
+    @apply space-y-4 tablet:space-y-6 desktop:space-y-4;
+  }
+  
+  /* Navigation optimizations - reset on desktop */
+  .nav-tablet {
+    @apply flex items-center justify-between;
+    @apply px-4 py-3 tablet:px-6 tablet:py-4 desktop:px-6 desktop:py-3;
+  }
+  
+  /* Form optimizations - reset on desktop */
+  .form-tablet {
+    @apply space-y-4 tablet:space-y-6 desktop:space-y-4;
+  }
+  
+  .form-group-tablet {
+    @apply tablet:grid tablet:grid-cols-2 tablet:gap-6 desktop:grid desktop:grid-cols-2 desktop:gap-4;
   }
 }
