@@ -192,7 +192,7 @@
 							</button>
 							<button
 								on:click={() => document.getElementById('how-it-works').scrollIntoView({ behavior: 'smooth' })}
-								class="btn-secondary text-lg px-8 py-4 border-2 border-white text-white font-semibold rounded-full hover:bg-white hover:text-blue-600 transition-all duration-200"
+								class="btn-secondary text-lg px-8 py-4 border-2 border-white text-black font-semibold rounded-full hover:bg-white hover:text-blue-600 transition-all duration-200"
 							>
 								See How It Works
 							</button>
