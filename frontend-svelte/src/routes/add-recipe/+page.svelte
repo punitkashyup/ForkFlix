@@ -3,6 +3,7 @@
 	import { user, loading, error } from '$lib/stores/auth.js';
 	import { apiService } from '$lib/services/api.js';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import MultiModalExtraction from '$lib/components/MultiModalExtraction.svelte';
 	import SmartRecipeEditor from '$lib/components/SmartRecipeEditor.svelte';
 	
@@ -17,6 +18,11 @@
 	let useAdvancedExtraction = true;
 	let showSmartEditor = false;
 	
+	// Edit mode variables
+	let editMode = false;
+	let editRecipeId = null;
+	let originalRecipe = null;
+	
 	// URL validation state
 	let urlValidation = { valid: false, message: '', isValidating: false };
 	let apiValidation = null;
@@ -30,13 +36,67 @@
 	let difficulty = 'Medium';
 	let ingredients = [''];
 	let instructions = '';
+	
+	// Duplicate detection
+	let isDuplicateUrl = false;
+	let duplicateRecipe = null;
 
-	onMount(() => {
+	onMount(async () => {
 		// Redirect if not logged in
 		if (!$user) {
 			goto('/login');
+			return;
+		}
+		
+		// Check if we're in edit mode
+		const editId = $page.url.searchParams.get('edit');
+		if (editId) {
+			editMode = true;
+			editRecipeId = editId;
+			await loadRecipeForEdit(editId);
 		}
 	});
+	
+	async function loadRecipeForEdit(recipeId) {
+		try {
+			loading.set(true);
+			originalRecipe = await apiService.getRecipe(recipeId);
+			
+			// Pre-populate form with existing recipe data
+			instagramUrl = originalRecipe.instagramUrl || '';
+			title = originalRecipe.title || '';
+			category = originalRecipe.category || 'Main Course';
+			cookingTime = originalRecipe.cookingTime || 30;
+			difficulty = originalRecipe.difficulty || 'Medium';
+			ingredients = originalRecipe.ingredients && originalRecipe.ingredients.length > 0 
+				? originalRecipe.ingredients 
+				: [''];
+			instructions = originalRecipe.instructions || '';
+			embedCode = originalRecipe.embedCode || '';
+			thumbnailUrl = originalRecipe.thumbnailUrl || '';
+			
+			// Set up extracted data for smart editor
+			extractedData = {
+				title: originalRecipe.title,
+				category: originalRecipe.category,
+				cookingTime: originalRecipe.cookingTime,
+				difficulty: originalRecipe.difficulty,
+				ingredients: originalRecipe.ingredients || [],
+				instructions: originalRecipe.instructions || '',
+				confidence: originalRecipe.confidence || 0.8
+			};
+			
+			// Show smart editor since we have data
+			showSmartEditor = true;
+			
+			console.log('✅ Loaded recipe for editing:', originalRecipe.title);
+		} catch (err) {
+			extractionError = 'Failed to load recipe for editing: ' + err.message;
+			console.error('Error loading recipe for edit:', err);
+		} finally {
+			loading.set(false);
+		}
+	}
 
 	// Handlers for multi-modal extraction
 	function handleMultiModalCompleted(event) {
@@ -198,6 +258,7 @@
 
 	async function saveRecipe() {
 		console.log('🔍 DEBUG: saveRecipe called');
+		console.log('🔍 DEBUG: Edit mode:', editMode);
 		console.log('🔍 DEBUG: Current form state:');
 		console.log('  - title:', title);
 		console.log('  - category:', category);
@@ -244,16 +305,23 @@
 
 			console.log('🔍 DEBUG: Final recipe payload before API call:', JSON.stringify(recipeData, null, 2));
 
-			await apiService.createRecipe(recipeData);
+			if (editMode && editRecipeId) {
+				// Update existing recipe
+				await apiService.updateRecipe(editRecipeId, recipeData);
+				alert('🎉 Recipe updated successfully! Redirecting to recipe details...');
+				goto(`/recipe/${editRecipeId}`);
+			} else {
+				// Create new recipe
+				await apiService.createRecipe(recipeData);
+				alert('🎉 Recipe saved successfully! Redirecting to your collection...');
+				goto('/');
+			}
 			
 			// Show success message before redirect
 			extractionError = '';
-			alert('🎉 Recipe saved successfully! Redirecting to your collection...');
-			
-			goto('/'); // Redirect to home after successful creation
 			
 		} catch (err) {
-			extractionError = 'Failed to save recipe: ' + err.message;
+			extractionError = `Failed to ${editMode ? 'update' : 'save'} recipe: ` + err.message;
 			console.error('Save error:', err);
 		} finally {
 			loading.set(false);
@@ -349,6 +417,9 @@
 			const normalizedUrl = normalizeUrl(instagramUrl);
 			if (normalizedUrl !== lastValidatedUrl && !urlValidation.isValidating) {
 				apiValidation = null;
+				// Reset duplicate detection when URL changes
+				isDuplicateUrl = false;
+				duplicateRecipe = null;
 				
 				// Clear existing timeout
 				if (validationTimeout) {
@@ -366,6 +437,8 @@
 			urlValidation = { valid: false, message: '', isValidating: false };
 			apiValidation = null;
 			lastValidatedUrl = '';
+			isDuplicateUrl = false;
+			duplicateRecipe = null;
 			if (validationTimeout) {
 				clearTimeout(validationTimeout);
 			}
@@ -391,8 +464,9 @@
 			console.log('✅ Validation result:', result);
 			apiValidation = result;
 			
-			// Don't update the URL to prevent reactive loops
-			// The normalized URL is already being used for validation
+			// Check for duplicate URLs (unless we're editing the same recipe)
+			await checkForDuplicateUrl(normalizedUrl);
+			
 		} catch (error) {
 			console.error('❌ Validation error:', error);
 			apiValidation = {
@@ -402,6 +476,34 @@
 			};
 		} finally {
 			urlValidation.isValidating = false;
+		}
+	}
+	
+	async function checkForDuplicateUrl(url) {
+		if (!url || editMode) return; // Skip duplicate check in edit mode
+		
+		try {
+			// Get all user recipes to check for duplicates
+			const response = await apiService.getRecipes({ page: 1, limit: 100 });
+			const userRecipes = response.items || [];
+			
+			// Check if any existing recipe has the same Instagram URL
+			const existingRecipe = userRecipes.find(recipe => 
+				recipe.instagramUrl && 
+				normalizeUrl(recipe.instagramUrl) === url
+			);
+			
+			if (existingRecipe) {
+				isDuplicateUrl = true;
+				duplicateRecipe = existingRecipe;
+				console.log('⚠️ Duplicate URL found:', existingRecipe.title);
+			} else {
+				isDuplicateUrl = false;
+				duplicateRecipe = null;
+			}
+		} catch (error) {
+			console.error('Error checking for duplicate URL:', error);
+			// Don't block the user if duplicate check fails
 		}
 	}
 	
@@ -424,7 +526,7 @@
 </script>
 
 <svelte:head>
-	<title>Add Recipe - ForkFlix</title>
+	<title>{editMode ? 'Edit Recipe' : 'Add Recipe'} - ForkFlix</title>
 </svelte:head>
 
 <div class="min-h-screen bg-gray-50">
@@ -438,7 +540,9 @@
 				>
 					← Back to Home
 				</button>
-				<h1 class="text-2xl font-bold text-gray-900">Add New Recipe</h1>
+				<h1 class="text-2xl font-bold text-gray-900">
+					{editMode ? `Edit Recipe${originalRecipe ? ': ' + originalRecipe.title : ''}` : 'Add New Recipe'}
+				</h1>
 				<div></div>
 			</div>
 		</div>
@@ -539,30 +643,80 @@
 									</div>
 								{/if}
 							{/if}
+							
+							<!-- Duplicate URL Warning -->
+							{#if isDuplicateUrl && duplicateRecipe}
+								<div class="mt-2 text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded p-3">
+									<div class="font-medium">⚠️ Recipe Already Exists</div>
+									<p class="mt-1 text-xs text-orange-700">
+										You already have a recipe for this Instagram post: 
+										<strong>"{duplicateRecipe.title}"</strong>
+									</p>
+									<div class="mt-2 flex gap-2">
+										<button 
+											on:click={() => goto(`/recipe/${duplicateRecipe.id}`)}
+											class="text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors"
+										>
+											View Existing Recipe
+										</button>
+										<button 
+											on:click={() => goto(`/add-recipe?edit=${duplicateRecipe.id}`)}
+											class="text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 px-2 py-1 rounded transition-colors"
+										>
+											Edit Existing Recipe
+										</button>
+									</div>
+								</div>
+							{/if}
 						</div>
 
 						<!-- Extraction Method Toggle -->
-						<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-							<label class="flex items-center space-x-3">
-								<input
-									type="checkbox"
-									bind:checked={useAdvancedExtraction}
-									class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-								>
-								<div>
-									<span class="text-sm font-medium text-blue-900">
-										Use Advanced Multi-Modal Extraction + Mistral AI
-									</span>
-									<p class="text-xs text-blue-700">
-										5-phase processing: text, video, audio, AI fusion + Mistral AI for 95%+ accuracy
-									</p>
+						{#if !editMode}
+							<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+								<label class="flex items-center space-x-3">
+									<input
+										type="checkbox"
+										bind:checked={useAdvancedExtraction}
+										class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+									>
+									<div>
+										<span class="text-sm font-medium text-blue-900">
+											Use Advanced Multi-Modal Extraction + Mistral AI
+										</span>
+										<p class="text-xs text-blue-700">
+											5-phase processing: text, video, audio, AI fusion + Mistral AI for 95%+ accuracy
+										</p>
+									</div>
+								</label>
+							</div>
+						{:else}
+							<div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+								<div class="flex items-center space-x-3">
+									<div class="h-4 w-4 bg-green-500 rounded-full flex items-center justify-center">
+										<span class="text-white text-xs">✓</span>
+									</div>
+									<div>
+										<span class="text-sm font-medium text-gray-700">
+											Recipe Already Extracted
+										</span>
+										<p class="text-xs text-gray-600">
+											Editing existing recipe data. No re-extraction needed.
+										</p>
+									</div>
 								</div>
-							</label>
-						</div>
+							</div>
+						{/if}
 
 						{#if useAdvancedExtraction}
 							<!-- Multi-Modal Extraction Component -->
-							{#if apiValidation?.valid}
+							{#if isDuplicateUrl}
+								<div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
+									<p class="text-orange-800 text-sm">
+										⚠️ Cannot extract recipe - this Instagram URL is already saved. 
+										Please use the buttons above to view or edit the existing recipe.
+									</p>
+								</div>
+							{:else if apiValidation?.valid}
 								<MultiModalExtraction
 									bind:instagramUrl={instagramUrl}
 									on:completed={handleMultiModalCompleted}
@@ -674,11 +828,11 @@
 								{#if $loading}
 									<div class="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
 								{/if}
-								💾 Save Recipe to Collection
+								{editMode ? '✏️ Update Recipe' : '💾 Save Recipe to Collection'}
 							</button>
 							
 							<p class="text-center text-sm text-gray-600 mt-3">
-								You can always edit the recipe details above before saving
+								You can always edit the recipe details above before {editMode ? 'updating' : 'saving'}
 							</p>
 						</div>
 					</div>
@@ -795,7 +949,7 @@
 							{#if $loading}
 								<div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
 							{/if}
-							💾 Save Recipe
+							{editMode ? '✏️ Update Recipe' : '💾 Save Recipe'}
 						</button>
 					</form>
 				</div>
