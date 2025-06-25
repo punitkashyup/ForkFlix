@@ -455,17 +455,10 @@
 											<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
 												{apiValidation.post_type?.toUpperCase() || 'POST'}
 											</span>
-											{#if apiValidation.content_preview}
-												<span class="text-xs text-green-700">
-													Quality: {apiValidation.content_preview.estimated_content_quality}
-												</span>
-											{/if}
+											<span class="text-xs text-green-700">
+												{apiValidation.accessible ? 'Accessible' : 'Format valid'}
+											</span>
 										</div>
-										{#if apiValidation.content_preview?.title_preview}
-											<div class="mt-2 text-xs text-green-700 italic">
-												"{apiValidation.content_preview.title_preview}"
-											</div>
-										{/if}
 										{#if apiValidation.extraction_estimate}
 											<div class="mt-2 text-xs text-green-700">
 												⏱️ Estimated extraction time: {apiValidation.extraction_estimate.estimated_time}
