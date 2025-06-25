@@ -71,11 +71,20 @@ class MistralService:
     def _create_extraction_prompt(self, data: Dict[str, Any]) -> str:
         """Create a comprehensive prompt for Mistral AI"""
         
-        prompt = f"""
-You are an expert recipe analyst. I will provide you with data extracted from Instagram recipe content using multiple AI methods (text analysis, video analysis, audio transcription, and AI fusion). Your task is to extract clean, accurate recipe information.
+        # Filter and prioritize data for better results
+        filtered_data = self._filter_and_prioritize_data(data)
+        
+        prompt = f"""You are an expert recipe analyst. I will provide you with data extracted from Instagram recipe content using multiple AI methods (text analysis, video analysis, audio transcription, and AI fusion). Your task is to extract clean, accurate recipe information.
 
-MULTIMODAL DATA:
-{json.dumps(data, indent=2)}
+DATA:
+{json.dumps(filtered_data, indent=2)}
+
+IMPORTANT GUIDELINES:
+- PRIORITIZE audio transcription data (phase_3_audio) as it contains the most detailed and accurate information
+- Use AI fusion results (phase_4_fusion) for title and category guidance
+- Cross-reference all phases to ensure consistency and completeness
+- For ingredients mentioned in audio but not listed, include them with realistic quantities
+- Create a proper recipe title that describes the actual dish being made
 
 TASK: Extract the following recipe information with maximum accuracy:
 
@@ -116,6 +125,36 @@ RESPONSE FORMAT (JSON only, no markdown):
 Extract the recipe data now:
 """
         return prompt.strip()
+    
+    def _filter_and_prioritize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Filter and prioritize data to improve Mistral AI results"""
+        filtered_data = {}
+        
+        # Always include audio data (highest priority)
+        if "phase_3_audio" in data:
+            filtered_data["phase_3_audio"] = data["phase_3_audio"]
+        
+        # Include AI fusion results (second priority) 
+        if "phase_4_fusion" in data:
+            filtered_data["phase_4_fusion"] = data["phase_4_fusion"]
+        
+        # Include video analysis if available
+        if "phase_2_video" in data:
+            filtered_data["phase_2_video"] = data["phase_2_video"]
+        
+        # Only include Phase 1 text if it has meaningful content
+        if "phase_1_text" in data:
+            phase_1 = data["phase_1_text"]
+            source_text = phase_1.get("source_text", "")
+            # Skip generic placeholder text
+            if source_text and "A recipe shared on Instagram" not in source_text:
+                filtered_data["phase_1_text"] = phase_1
+        
+        # Include metadata
+        filtered_data["instagram_url"] = data.get("instagram_url")
+        filtered_data["extraction_timestamp"] = data.get("extraction_timestamp")
+        
+        return filtered_data
     
     async def _call_mistral_api(self, prompt: str) -> Optional[Dict[str, Any]]:
         """Call the Mistral AI API"""
