@@ -17,6 +17,12 @@
 	let useAdvancedExtraction = true;
 	let showSmartEditor = false;
 	
+	// URL validation state
+	let urlValidation = { valid: false, message: '', isValidating: false };
+	let apiValidation = null;
+	let validationTimeout = null;
+	let lastValidatedUrl = '';
+	
 	// Form fields for manual input
 	let title = '';
 	let category = 'Main Course';
@@ -232,6 +238,128 @@
 		// Handle unsaved changes status if needed
 		console.log('Has unsaved changes:', hasUnsavedChanges);
 	}
+	
+	// URL validation functions
+	function validateUrlFormat(url) {
+		const urlPattern = /^https?:\/\/(www\.)?instagram\.com\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?/;
+		
+		if (!url || url.trim() === '') {
+			return { valid: false, message: '' };
+		}
+		
+		if (!urlPattern.test(url.trim())) {
+			return { 
+				valid: false, 
+				message: 'Please enter a valid Instagram post, reel, or TV video URL' 
+			};
+		}
+		
+		return { valid: true, message: 'URL format looks good' };
+	}
+	
+	function normalizeUrl(url) {
+		if (!url) return '';
+		
+		let cleanUrl = url.trim();
+		
+		// Remove tracking parameters
+		cleanUrl = cleanUrl.split('?')[0];
+		
+		// Ensure it starts with https://
+		if (!cleanUrl.startsWith('http')) {
+			cleanUrl = 'https://' + cleanUrl;
+		}
+		
+		// Ensure it ends with / for consistency
+		if (!cleanUrl.endsWith('/')) {
+			cleanUrl += '/';
+		}
+		
+		return cleanUrl;
+	}
+	
+	// Reactive validation whenever URL changes with debouncing
+	$: {
+		if (instagramUrl) {
+			urlValidation = validateUrlFormat(instagramUrl);
+			
+			// Only reset API validation if URL actually changed from user input
+			// Don't trigger if it's just a normalization from API validation
+			const normalizedUrl = normalizeUrl(instagramUrl);
+			if (normalizedUrl !== lastValidatedUrl && !urlValidation.isValidating) {
+				apiValidation = null;
+				
+				// Clear existing timeout
+				if (validationTimeout) {
+					clearTimeout(validationTimeout);
+				}
+				
+				// Auto-validate after user stops typing (800ms delay)
+				if (urlValidation.valid) {
+					validationTimeout = setTimeout(() => {
+						validateUrlWithAPI();
+					}, 800);
+				}
+			}
+		} else {
+			urlValidation = { valid: false, message: '', isValidating: false };
+			apiValidation = null;
+			lastValidatedUrl = '';
+			if (validationTimeout) {
+				clearTimeout(validationTimeout);
+			}
+		}
+	}
+	
+	async function validateUrlWithAPI() {
+		if (!urlValidation.valid) return;
+		
+		const normalizedUrl = normalizeUrl(instagramUrl);
+		
+		// Don't validate if already validating this URL or already validated
+		if (urlValidation.isValidating || lastValidatedUrl === normalizedUrl) {
+			return;
+		}
+		
+		console.log('🔍 Starting API validation for:', normalizedUrl);
+		urlValidation.isValidating = true;
+		lastValidatedUrl = normalizedUrl;
+		
+		try {
+			const result = await apiService.validateMultiModalUrl(normalizedUrl);
+			console.log('✅ Validation result:', result);
+			apiValidation = result;
+			
+			// Don't update the URL to prevent reactive loops
+			// The normalized URL is already being used for validation
+		} catch (error) {
+			console.error('❌ Validation error:', error);
+			apiValidation = {
+				valid: false,
+				message: 'Failed to validate URL. Please check your connection.',
+				error: error.message
+			};
+		} finally {
+			urlValidation.isValidating = false;
+		}
+	}
+	
+	// Handle paste events for immediate validation
+	async function handleUrlPaste(event) {
+		console.log('📋 Paste event detected');
+		// Wait for the paste to complete
+		setTimeout(() => {
+			const normalizedUrl = normalizeUrl(instagramUrl);
+			if (urlValidation.valid && normalizedUrl !== lastValidatedUrl && !urlValidation.isValidating) {
+				console.log('📋 Validating pasted URL immediately');
+				// Clear any existing timeout and validate immediately on paste
+				if (validationTimeout) {
+					clearTimeout(validationTimeout);
+				}
+				validateUrlWithAPI();
+			}
+		}, 100);
+	}
 </script>
 
 <svelte:head>
@@ -267,13 +395,96 @@
 							<label for="instagram-url" class="block text-sm font-medium text-gray-700 mb-2">
 								Instagram URL
 							</label>
-							<input
-								id="instagram-url"
-								type="url"
-								bind:value={instagramUrl}
-								placeholder="https://www.instagram.com/reel/..."
-								class="input"
-							>
+							<div class="relative">
+								<input
+									id="instagram-url"
+									type="url"
+									bind:value={instagramUrl}
+									on:paste={handleUrlPaste}
+									placeholder="https://www.instagram.com/reel/..."
+									class="input pr-10 {
+										instagramUrl && urlValidation.valid && apiValidation?.valid ? 'border-green-500' : 
+										instagramUrl && !urlValidation.valid ? 'border-red-500' : 
+										instagramUrl && urlValidation.valid && urlValidation.isValidating ? 'border-blue-500' : ''
+									}"
+								>
+								
+								<!-- Status indicators -->
+								<div class="absolute right-3 top-3">
+									{#if urlValidation.isValidating}
+										<!-- Loading spinner -->
+										<div class="animate-spin h-4 w-4 border-b-2 border-blue-500 rounded-full"></div>
+									{:else if instagramUrl && urlValidation.valid && apiValidation?.valid}
+										<!-- Success check -->
+										<div class="h-4 w-4 text-green-500">✓</div>
+									{:else if instagramUrl && !urlValidation.valid}
+										<!-- Error X -->
+										<div class="h-4 w-4 text-red-500">✗</div>
+									{:else if instagramUrl && urlValidation.valid && apiValidation === null}
+										<!-- Validating indicator -->
+										<div class="h-4 w-4 text-blue-500">⏳</div>
+									{/if}
+								</div>
+							</div>
+							
+							<!-- Validation Messages -->
+							{#if instagramUrl && !urlValidation.valid}
+								<div class="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
+									❌ {urlValidation.message}
+								</div>
+							{/if}
+							
+							{#if urlValidation.valid && !apiValidation && !urlValidation.isValidating}
+								<div class="mt-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded p-2">
+									⏱️ Auto-validating URL accessibility...
+								</div>
+							{/if}
+							
+							{#if urlValidation.isValidating}
+								<div class="mt-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded p-2">
+									🔍 Checking URL accessibility and content quality...
+								</div>
+							{/if}
+							
+							<!-- API Validation Results -->
+							{#if apiValidation}
+								{#if apiValidation.valid}
+									<div class="mt-2 text-sm text-green-600 bg-green-50 border border-green-200 rounded p-3">
+										<div class="font-medium">✅ {apiValidation.message}</div>
+										<div class="flex items-center gap-2 mt-1">
+											<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
+												{apiValidation.post_type?.toUpperCase() || 'POST'}
+											</span>
+											{#if apiValidation.content_preview}
+												<span class="text-xs text-green-700">
+													Quality: {apiValidation.content_preview.estimated_content_quality}
+												</span>
+											{/if}
+										</div>
+										{#if apiValidation.content_preview?.title_preview}
+											<div class="mt-2 text-xs text-green-700 italic">
+												"{apiValidation.content_preview.title_preview}"
+											</div>
+										{/if}
+										{#if apiValidation.extraction_estimate}
+											<div class="mt-2 text-xs text-green-700">
+												⏱️ Estimated extraction time: {apiValidation.extraction_estimate.estimated_time}
+											</div>
+										{/if}
+									</div>
+								{:else}
+									<div class="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">
+										<div class="font-medium">❌ {apiValidation.message}</div>
+										{#if apiValidation.suggestions}
+											<ul class="mt-2 text-xs space-y-1">
+												{#each apiValidation.suggestions as suggestion}
+													<li>• {suggestion}</li>
+												{/each}
+											</ul>
+										{/if}
+									</div>
+								{/if}
+							{/if}
 						</div>
 
 						<!-- Extraction Method Toggle -->
@@ -297,13 +508,29 @@
 
 						{#if useAdvancedExtraction}
 							<!-- Multi-Modal Extraction Component -->
-							<MultiModalExtraction
-								bind:instagramUrl={instagramUrl}
-								on:completed={handleMultiModalCompleted}
-								on:error={handleMultiModalError}
-								on:cancelled={handleMultiModalCancelled}
-								on:phaseUpdate={handlePhaseUpdate}
-							/>
+							{#if apiValidation?.valid}
+								<MultiModalExtraction
+									bind:instagramUrl={instagramUrl}
+									on:completed={handleMultiModalCompleted}
+									on:error={handleMultiModalError}
+									on:cancelled={handleMultiModalCancelled}
+									on:phaseUpdate={handlePhaseUpdate}
+								/>
+							{:else}
+								<div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+									<p class="text-gray-600 text-sm">
+										{#if !instagramUrl}
+											Enter an Instagram URL to begin extraction
+										{:else if !urlValidation.valid}
+											Please enter a valid Instagram URL
+										{:else if !apiValidation}
+											Please validate the URL first
+										{:else}
+											URL validation failed - please fix the issues above
+										{/if}
+									</p>
+								</div>
+							{/if}
 						{:else}
 							<!-- Legacy Extraction -->
 							<button

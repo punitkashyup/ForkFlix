@@ -172,6 +172,14 @@ class ApiService {
 		return this.request('/api/v1/multimodal/test');
 	}
 
+	// URL validation for multimodal extraction
+	async validateMultiModalUrl(url) {
+		return this.request('/api/v1/multimodal/validate-url', {
+			method: 'POST',
+			body: JSON.stringify({ url })
+		});
+	}
+
 	// Test method to debug API connection
 	async testConnection() {
 		try {

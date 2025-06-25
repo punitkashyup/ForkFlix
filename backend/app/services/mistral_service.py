@@ -213,6 +213,11 @@ Extract the recipe data now:
                 content = content[:-3]
             content = content.strip()
             
+            # Fix common JSON formatting issues from Mistral
+            import re
+            # Fix unquoted ranges like "amount": 4-5 -> "amount": "4-5"
+            content = re.sub(r'"amount":\s*(\d+-\d+),', r'"amount": "\1",', content)
+            
             # Parse JSON
             recipe_data = json.loads(content)
             

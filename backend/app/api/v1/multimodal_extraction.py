@@ -469,6 +469,96 @@ async def multimodal_service_health():
         )
 
 
+@router.post("/validate-url")
+async def validate_instagram_url(
+    request: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Validate Instagram URL before starting extraction
+    
+    This endpoint allows frontend to validate Instagram URLs
+    before making the full multimodal extraction request.
+    """
+    try:
+        instagram_url = request.get("url", "").strip()
+        
+        if not instagram_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Instagram URL is required"
+            )
+        
+        # Validate the Instagram URL
+        validation_result = await instagram_service.validate_url(instagram_url)
+        
+        if not validation_result["isValid"]:
+            return {
+                "valid": False,
+                "message": validation_result["message"],
+                "post_type": validation_result["postType"],
+                "url": instagram_url,
+                "suggestions": [
+                    "Ensure the URL is from Instagram.com",
+                    "Make sure it's a post, reel, or TV video URL",
+                    "Check that the URL is complete and not truncated"
+                ]
+            }
+        
+        # Additional check: Try to fetch basic metadata to ensure URL is accessible
+        try:
+            metadata = await instagram_service.get_metadata(instagram_url)
+            has_content = bool(metadata.get('title') and metadata.get('description'))
+            
+            return {
+                "valid": True,
+                "message": "Valid Instagram URL - ready for extraction",
+                "post_type": validation_result["postType"],
+                "url": instagram_url,
+                "content_preview": {
+                    "has_title": bool(metadata.get('title')),
+                    "has_description": bool(metadata.get('description')),
+                    "has_thumbnail": bool(metadata.get('thumbnailUrl')),
+                    "title_preview": metadata.get('title', '')[:100] + "..." if metadata.get('title') and len(metadata.get('title', '')) > 100 else metadata.get('title', ''),
+                    "estimated_content_quality": "high" if has_content else "low"
+                },
+                "extraction_estimate": {
+                    "estimated_time": "20-30 seconds",
+                    "phases": ["text_analysis", "video_analysis", "audio_transcription", "ai_fusion", "mistral_processing"]
+                }
+            }
+            
+        except Exception as metadata_error:
+            logger.warning(f"Could not fetch metadata for validation: {metadata_error}")
+            return {
+                "valid": True,
+                "message": "Valid Instagram URL format - content accessibility unknown",
+                "post_type": validation_result["postType"],
+                "url": instagram_url,
+                "content_preview": {
+                    "has_title": False,
+                    "has_description": False,
+                    "has_thumbnail": False,
+                    "title_preview": "",
+                    "estimated_content_quality": "unknown"
+                },
+                "extraction_estimate": {
+                    "estimated_time": "20-30 seconds",
+                    "phases": ["text_analysis", "video_analysis", "audio_transcription", "ai_fusion", "mistral_processing"]
+                },
+                "warning": "Could not verify content accessibility - extraction may have limited results"
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"URL validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to validate Instagram URL"
+        )
+
+
 @router.get("/test")
 async def test_endpoint():
     """Simple test endpoint to verify router is working"""
