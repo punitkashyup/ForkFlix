@@ -144,7 +144,11 @@ class InstagramService:
                 'User-Agent': 'Mozilla/5.0'
             }
             
-            response = await self.client.get(url, headers=headers)
+            # Ensure URL ends with / like in your working script
+            if not url.endswith('/'):
+                url = url + '/'
+            
+            response = await self.client.get(url, headers=headers, follow_redirects=True)
             if response.status_code != 200:
                 logger.warning(f"Failed to load Instagram page: {response.status_code}")
                 return {}
@@ -153,24 +157,42 @@ class InstagramService:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Extract Open Graph metadata
+            # Extract Open Graph metadata exactly like your working script
             thumbnail_tag = soup.find('meta', property='og:image')
             title_tag = soup.find('meta', property='og:title')
             description_tag = soup.find('meta', property='og:description')
             
-            # Also try Twitter card metadata as fallback
-            if not thumbnail_tag:
-                thumbnail_tag = soup.find('meta', {'name': 'twitter:image'})
-            if not title_tag:
-                title_tag = soup.find('meta', {'name': 'twitter:title'})
-            if not description_tag:
-                description_tag = soup.find('meta', {'name': 'twitter:description'})
-            
-            return {
-                'thumbnailUrl': thumbnail_tag.get('content') if thumbnail_tag else None,
-                'title': title_tag.get('content') if title_tag else None,
-                'description': description_tag.get('content') if description_tag else None
-            }
+            # Handle missing tags gracefully
+            try:
+                thumbnail_url = thumbnail_tag['content'] if thumbnail_tag else None
+                title = title_tag['content'] if title_tag else None
+                description = description_tag['content'] if description_tag else None
+                
+                # Log results for debugging
+                if title and description:
+                    logger.info(f"✅ Successfully extracted Instagram metadata")
+                    logger.info(f"🔍 Recipe found in title: {'Golbari' in title}")
+                else:
+                    logger.warning(f"❌ Failed to extract complete Instagram metadata")
+                    # Try fallback Twitter meta tags
+                    if not thumbnail_tag:
+                        thumbnail_tag = soup.find('meta', {'name': 'twitter:image'})
+                        thumbnail_url = thumbnail_tag['content'] if thumbnail_tag else None
+                    if not title_tag:
+                        title_tag = soup.find('meta', {'name': 'twitter:title'})
+                        title = title_tag['content'] if title_tag else None
+                    if not description_tag:
+                        description_tag = soup.find('meta', {'name': 'twitter:description'})
+                        description = description_tag['content'] if description_tag else None
+                
+                return {
+                    'thumbnailUrl': thumbnail_url,
+                    'title': title,
+                    'description': description
+                }
+            except (KeyError, TypeError) as e:
+                logger.error(f"Error parsing meta tags: {e}")
+                return {}
             
         except Exception as e:
             logger.error(f"Error extracting metadata from Instagram page: {e}")
