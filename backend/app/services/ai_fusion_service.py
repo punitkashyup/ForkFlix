@@ -690,21 +690,26 @@ class AIFusionService:
         return unique_ingredients[:12]  # Limit to 12 ingredients
     
     def _extract_ingredients_from_text_simple(self, text: str) -> List[str]:
-        """Simple ingredient extraction from text"""
-        common_ingredients = [
-            "salt", "pepper", "oil", "butter", "garlic", "onion", "tomato",
-            "flour", "sugar", "egg", "milk", "cheese", "chicken", "beef",
-            "pasta", "rice", "bread", "potato", "carrot", "celery"
-        ]
+        """Simple ingredient extraction from text using pattern matching"""
+        import re
         
         text_lower = text.lower()
         found = []
         
-        for ingredient in common_ingredients:
-            if ingredient in text_lower and ingredient not in found:
-                found.append(ingredient)
+        # Look for patterns like "2 cups flour", "1 tsp salt", etc.
+        patterns = [
+            r'\b\d+\s*(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|ml|liters?)\s+(\w+)',
+            r'\b(\w+)\s+(?:cups?|tbsp|tablespoons?|tsp|teaspoons?|oz|ounces?|lbs?|pounds?|grams?|ml|liters?)',
+            r'\b(?:add|use|mix|combine|stir|chop|slice|dice)\s+(?:the\s+)?(\w+)',
+        ]
         
-        return found
+        for pattern in patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                if len(match) > 2 and match not in found and match.isalpha():
+                    found.append(match)
+        
+        return found[:10]  # Limit to 10 ingredients
     
     def _fallback_fusion(
         self,

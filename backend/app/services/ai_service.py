@@ -83,16 +83,16 @@ class AIService:
             
         except Exception as e:
             logger.error(f"AI extraction failed: {e}")
-            # Return fallback data on error
+            # Return minimal fallback data on error
             return {
-                "ingredients": ["ingredient1", "ingredient2", "ingredient3"],
-                "category": "Main Course",
-                "cookingTime": 30,
-                "difficulty": "Medium",
+                "ingredients": [],
+                "category": None,
+                "cookingTime": None,
+                "difficulty": None,
                 "dietaryInfo": [],
-                "tags": ["recipe"],
-                "instructions": "Instructions will be extracted when AI service is available.",
-                "confidence": 0.1
+                "tags": [],
+                "instructions": "",
+                "confidence": 0.0
             }
     
     async def categorize_recipe(self, text: str, ingredients: List[str]) -> Dict[str, Any]:
@@ -203,25 +203,26 @@ class AIService:
     
     async def _fallback_extract_ingredients(self, text: str) -> List[str]:
         """Fallback ingredient extraction when AI model is unavailable"""
-        common_ingredients = [
-            "salt", "pepper", "oil", "butter", "garlic", "onion", "tomato",
-            "flour", "sugar", "egg", "milk", "cheese", "chicken", "beef",
-            "pasta", "rice", "bread", "potato", "carrot", "celery",
-            "basil", "parsley", "thyme", "oregano", "paprika", "cumin"
-        ]
-        
+        # Use simple text analysis instead of hardcoded ingredients
         text_lower = text.lower()
         found_ingredients = []
         
-        for ingredient in common_ingredients:
-            if ingredient in text_lower:
-                found_ingredients.append(ingredient)
+        # Basic ingredient detection patterns
+        ingredient_patterns = [
+            r'\b\d+\s*(?:cups?|tbsp|tsp|oz|lbs?|grams?|ml|liters?)\s+(\w+)',
+            r'\b(\w+)\s+(?:cups?|tbsp|tsp|oz|lbs?|grams?|ml|liters?)',
+            r'\b(?:add|use|mix|combine|stir)\s+(\w+)',
+        ]
         
-        # Add some default ingredients if none found
-        if not found_ingredients:
-            found_ingredients = ["olive oil", "garlic", "salt", "black pepper"]
+        import re
+        for pattern in ingredient_patterns:
+            matches = re.findall(pattern, text_lower)
+            for match in matches:
+                if len(match) > 2 and match not in found_ingredients:
+                    found_ingredients.append(match)
         
-        return found_ingredients[:10]  # Limit to 10 ingredients
+        # Return empty list if no ingredients found rather than hardcoded ones
+        return found_ingredients[:10] if found_ingredients else []
     
     def _is_food_ingredient(self, word: str) -> bool:
         """Check if a word is likely a food ingredient"""
@@ -383,24 +384,32 @@ class AIService:
     
     def _generate_basic_instructions(self, ingredients: List[str], description: str) -> str:
         """Generate basic cooking instructions as fallback"""
+        if not ingredients or not description:
+            return "Instructions not available. Please refer to the original source."
+        
+        # Create more dynamic instructions based on actual content
         instructions = []
-        instructions.append(f"1. Gather all ingredients: {', '.join(ingredients[:5])}{'...' if len(ingredients) > 5 else ''}.")
+        description_lower = description.lower()
         
-        if any(word in description.lower() for word in ["heat", "cook", "fry", "sauté"]):
-            instructions.append("2. Heat oil in a large pan over medium heat.")
-            instructions.append("3. Add main ingredients and cook until tender.")
-        elif any(word in description.lower() for word in ["bake", "oven"]):
-            instructions.append("2. Preheat oven to 350°F (175°C).")
-            instructions.append("3. Prepare ingredients and place in baking dish.")
-        elif any(word in description.lower() for word in ["boil", "simmer"]):
-            instructions.append("2. Bring water to a boil in a large pot.")
-            instructions.append("3. Add ingredients and cook until done.")
+        # Extract any cooking methods mentioned in the description
+        cooking_methods = []
+        if "bake" in description_lower or "oven" in description_lower:
+            cooking_methods.append("baking")
+        if "fry" in description_lower or "pan" in description_lower:
+            cooking_methods.append("frying")
+        if "boil" in description_lower or "simmer" in description_lower:
+            cooking_methods.append("boiling")
+        if "grill" in description_lower:
+            cooking_methods.append("grilling")
+        
+        if cooking_methods:
+            instructions.append(f"1. Prepare ingredients for {' and '.join(cooking_methods)}.")
+            instructions.append("2. Follow the cooking method shown in the original content.")
         else:
-            instructions.append("2. Prepare ingredients according to recipe.")
-            instructions.append("3. Combine ingredients as directed.")
+            instructions.append("1. Prepare ingredients as shown in the source.")
+            instructions.append("2. Follow the cooking steps demonstrated in the original content.")
         
-        instructions.append("4. Season with salt and pepper to taste.")
-        instructions.append("5. Serve hot and enjoy!")
+        instructions.append("3. Refer to the original Instagram post for detailed steps and timing.")
         
         return "\n".join(instructions)
     

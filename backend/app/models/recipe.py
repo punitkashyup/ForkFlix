@@ -69,11 +69,6 @@ class Recipe(BaseModel):
         }
 
 
-class RecipeCreate(BaseModel):
-    instagramUrl: HttpUrl = Field(..., description="Instagram reel/post URL")
-    title: Optional[str] = Field(None, min_length=3, max_length=100, description="Recipe title")
-    category: Optional[RecipeCategory] = Field(None, description="Recipe category")
-    isPublic: bool = Field(default=False, description="Whether recipe is publicly visible")
 
 
 class RecipeUpdate(BaseModel):

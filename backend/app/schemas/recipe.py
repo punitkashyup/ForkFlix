@@ -1,5 +1,5 @@
 from typing import List, Optional, Any
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, validator
 from app.models.recipe import Recipe, RecipeCategory, RecipeDifficulty, DietaryInfo
 
 
@@ -7,7 +7,28 @@ class RecipeCreate(BaseModel):
     instagramUrl: HttpUrl = Field(..., description="Instagram reel/post URL")
     title: Optional[str] = Field(None, min_length=3, max_length=100, description="Recipe title")
     category: Optional[RecipeCategory] = Field(None, description="Recipe category")
+    cookingTime: Optional[int] = Field(None, ge=1, le=1440, description="Cooking time in minutes")
+    difficulty: Optional[RecipeDifficulty] = Field(None, description="Recipe difficulty")
+    ingredients: Optional[List[str]] = Field(None, max_items=50, description="Recipe ingredients")
+    instructions: Optional[str] = Field(None, description="Cooking instructions")
+    embedCode: Optional[str] = Field(None, description="Instagram embed code")
+    thumbnailUrl: Optional[str] = Field(None, description="Recipe thumbnail URL")
+    aiExtracted: Optional[bool] = Field(default=False, description="Whether data was AI extracted")
+    extractionMethod: Optional[str] = Field(None, description="AI extraction method used")
+    confidence: Optional[float] = Field(None, ge=0, le=1, description="AI extraction confidence")
     isPublic: bool = Field(default=False, description="Whether recipe is publicly visible")
+
+    @validator('thumbnailUrl', pre=True)
+    def validate_thumbnail_url(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
+
+    @validator('embedCode', pre=True)
+    def validate_embed_code(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
 
     class Config:
         json_schema_extra = {
@@ -15,6 +36,11 @@ class RecipeCreate(BaseModel):
                 "instagramUrl": "https://www.instagram.com/reel/ABC123/",
                 "title": "Delicious Pasta Recipe",
                 "category": "Main Course",
+                "cookingTime": 30,
+                "difficulty": "Medium",
+                "ingredients": ["pasta", "tomatoes", "garlic"],
+                "instructions": "Cook pasta, add sauce, serve hot",
+                "aiExtracted": True,
                 "isPublic": False
             }
         }

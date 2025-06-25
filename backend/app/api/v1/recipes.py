@@ -54,6 +54,7 @@ async def create_recipe(
     """Create a new recipe from Instagram URL with AI extraction"""
     try:
         logger.info(f"Creating recipe for user {current_user['uid']} with URL: {recipe_data.instagramUrl}")
+        logger.info(f"📥 Received recipe data: {recipe_data.dict()}")
         
         # Step 1: Validate Instagram URL
         instagram_url = str(recipe_data.instagramUrl)
@@ -76,38 +77,52 @@ async def create_recipe(
                 detail="Failed to fetch Instagram content. The post might be private or deleted."
             )
         
-        # Step 3: Extract recipe information using AI
+        # Step 3: Use provided recipe data or extract with AI as fallback
         ai_result = None
-        try:
-            ai_result = await ai_service.extract_from_instagram(
-                instagram_url=instagram_url,
-                thumbnail_url=metadata.get("thumbnailUrl"),
-                description=metadata.get("description", ""),
-                caption=metadata.get("title", "")
-            )
-            logger.info(f"AI extraction completed with confidence: {ai_result.get('confidence', 0)}")
-        except Exception as e:
-            logger.warning(f"AI extraction failed, using manual data: {e}")
-            # Continue without AI data if extraction fails
         
-        # Step 4: Prepare recipe data
+        # Check if frontend already provided extracted data
+        has_frontend_data = (recipe_data.ingredients and len(recipe_data.ingredients) > 0) or recipe_data.instructions
+        
+        if not has_frontend_data:
+            # Only run AI extraction if frontend didn't provide data
+            try:
+                ai_result = await ai_service.extract_from_instagram(
+                    instagram_url=instagram_url,
+                    thumbnail_url=metadata.get("thumbnailUrl"),
+                    description=metadata.get("description", ""),
+                    caption=metadata.get("title", "")
+                )
+                logger.info(f"AI extraction completed with confidence: {ai_result.get('confidence', 0)}")
+            except Exception as e:
+                logger.warning(f"AI extraction failed, using manual data: {e}")
+                # Continue without AI data if extraction fails
+        else:
+            logger.info("Using frontend-provided extracted data, skipping backend AI extraction")
+        
+        # Step 4: Prepare recipe data (prioritize frontend data over AI extraction)
         recipe_dict = {
             "userId": current_user["uid"],
-            "title": recipe_data.title or ai_result.get("title") or metadata.get("title", "Recipe from Instagram"),
+            "title": recipe_data.title or (ai_result.get("title") if ai_result else metadata.get("title", "Recipe from Instagram")),
             "instagramUrl": instagram_url,
-            "embedCode": embed_result["embedCode"],
+            "embedCode": recipe_data.embedCode or embed_result["embedCode"],
             "category": recipe_data.category or (ai_result.get("category") if ai_result else "Main Course"),
-            "cookingTime": ai_result.get("cookingTime", 30) if ai_result else 30,
-            "difficulty": ai_result.get("difficulty", "Medium") if ai_result else "Medium",
-            "ingredients": ai_result.get("ingredients", []) if ai_result else [],
-            "instructions": ai_result.get("instructions", "") if ai_result else "",
-            "aiExtracted": ai_result is not None,
+            "cookingTime": recipe_data.cookingTime or (ai_result.get("cookingTime", 30) if ai_result else 30),
+            "difficulty": recipe_data.difficulty or (ai_result.get("difficulty", "Medium") if ai_result else "Medium"),
+            "ingredients": recipe_data.ingredients or (ai_result.get("ingredients", []) if ai_result else []),
+            "instructions": recipe_data.instructions or (ai_result.get("instructions", "") if ai_result else ""),
+            "aiExtracted": recipe_data.aiExtracted or (ai_result is not None),
             "tags": ai_result.get("tags", []) if ai_result else [],
             "dietaryInfo": ai_result.get("dietaryInfo", []) if ai_result else [],
             "isPublic": recipe_data.isPublic,
             "likes": 0,
-            "thumbnailUrl": metadata.get("thumbnailUrl")
+            "thumbnailUrl": recipe_data.thumbnailUrl or metadata.get("thumbnailUrl")
         }
+        
+        # Add extraction metadata if provided
+        if recipe_data.extractionMethod:
+            recipe_dict["extractionMethod"] = recipe_data.extractionMethod
+        if recipe_data.confidence is not None:
+            recipe_dict["confidence"] = recipe_data.confidence
         
         # Step 5: Save to Firebase
         recipe_id = await firebase_service.create_recipe(recipe_dict)
@@ -119,8 +134,8 @@ async def create_recipe(
             message="Recipe created successfully",
             data={
                 "recipe": recipe_dict,
-                "aiConfidence": ai_result.get("confidence", 0) if ai_result else 0,
-                "extractedByAI": ai_result is not None
+                "aiConfidence": recipe_data.confidence or (ai_result.get("confidence", 0) if ai_result else 0),
+                "extractedByAI": recipe_data.aiExtracted or (ai_result is not None)
             }
         )
         

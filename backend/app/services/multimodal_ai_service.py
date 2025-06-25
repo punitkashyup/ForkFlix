@@ -280,14 +280,14 @@ class MultiModalAIService:
             logger.error(f"Enhanced text extraction failed: {e}")
             return {
                 "source": "text",
-                "ingredients": ["olive oil", "garlic", "salt", "pepper"],
-                "category": "Main Course",
-                "instructions": "Instructions extracted from text analysis.",
-                "cookingTime": 30,
-                "difficulty": "Medium",
+                "ingredients": [],
+                "category": None,
+                "instructions": "",
+                "cookingTime": None,
+                "difficulty": None,
                 "dietaryInfo": [],
-                "tags": ["recipe"],
-                "confidence": 0.3,
+                "tags": [],
+                "confidence": 0.0,
                 "extractedFields": []
             }
     

@@ -45,40 +45,51 @@
 		isExtracting = false;
 		showSmartEditor = true;
 		
+		console.log('🔍 DEBUG: Raw extraction result received:', JSON.stringify(result, null, 2));
+		
 		// Handle Phase 5 Mistral AI structured data or fallback to Phase 4
 		let recipeData;
 		if (result?.recipe_data) {
 			// Phase 5: Mistral AI structured data
 			recipeData = result.recipe_data;
-			console.log('✅ Using Phase 5 Mistral AI data:', recipeData);
+			console.log('✅ Using Phase 5 Mistral AI data:', JSON.stringify(recipeData, null, 2));
 		} else {
 			// Phase 4: AI Fusion data (fallback)
 			recipeData = result;
-			console.log('⚠️ Using Phase 4 AI Fusion data:', recipeData);
+			console.log('⚠️ Using Phase 4 AI Fusion data:', JSON.stringify(recipeData, null, 2));
 		}
+		
+		console.log('🔍 DEBUG: Recipe data before transformation:', JSON.stringify(recipeData, null, 2));
 		
 		// Transform data to SmartRecipeEditor expected format
 		let transformedIngredients;
+		console.log('🔍 DEBUG: Processing ingredients:', recipeData.ingredients);
 		if (recipeData.ingredients && Array.isArray(recipeData.ingredients)) {
 			if (recipeData.ingredients.length > 0 && typeof recipeData.ingredients[0] === 'object') {
 				// Mistral AI format: [{name: "...", amount: "...", unit: "..."}]
 				transformedIngredients = recipeData.ingredients.map(ing => 
 					`${ing.amount || ''} ${ing.unit || ''} ${ing.name || ''}`.trim()
 				).filter(ing => ing.length > 0);
+				console.log('🔍 DEBUG: Transformed ingredients (object format):', transformedIngredients);
 			} else {
 				// Simple string array format
 				transformedIngredients = recipeData.ingredients.filter(ing => ing && ing.trim());
+				console.log('🔍 DEBUG: Transformed ingredients (string array):', transformedIngredients);
 			}
 		} else {
 			transformedIngredients = [''];
+			console.log('🔍 DEBUG: No ingredients found, using default empty array');
 		}
 		
 		// Transform instructions
 		let transformedInstructions;
+		console.log('🔍 DEBUG: Processing instructions:', recipeData.instructions);
 		if (recipeData.instructions && Array.isArray(recipeData.instructions)) {
 			transformedInstructions = recipeData.instructions.join('\n');
+			console.log('🔍 DEBUG: Transformed instructions (array format):', transformedInstructions);
 		} else {
 			transformedInstructions = recipeData.instructions || '';
+			console.log('🔍 DEBUG: Transformed instructions (string format):', transformedInstructions);
 		}
 		
 		// Create transformed data for SmartRecipeEditor
@@ -95,6 +106,8 @@
 			confidence: result.confidence || 0.8
 		};
 		
+		console.log('🔍 DEBUG: Final extractedData object:', JSON.stringify(extractedData, null, 2));
+		
 		// Populate basic form fields with structured data
 		title = extractedData.title;
 		category = extractedData.category;
@@ -102,6 +115,14 @@
 		difficulty = extractedData.difficulty;
 		ingredients = extractedData.ingredients.length > 0 ? extractedData.ingredients : [''];
 		instructions = extractedData.instructions;
+		
+		console.log('🔍 DEBUG: Form variables after population:');
+		console.log('  - title:', title);
+		console.log('  - category:', category);
+		console.log('  - cookingTime:', cookingTime);
+		console.log('  - difficulty:', difficulty);
+		console.log('  - ingredients:', JSON.stringify(ingredients, null, 2));
+		console.log('  - instructions:', instructions);
 		
 		console.log('✅ Transformed data for SmartRecipeEditor:', extractedData);
 	}
@@ -176,11 +197,25 @@
 	}
 
 	async function saveRecipe() {
+		console.log('🔍 DEBUG: saveRecipe called');
+		console.log('🔍 DEBUG: Current form state:');
+		console.log('  - title:', title);
+		console.log('  - category:', category);
+		console.log('  - cookingTime:', cookingTime);
+		console.log('  - difficulty:', difficulty);
+		console.log('  - ingredients:', JSON.stringify(ingredients, null, 2));
+		console.log('  - instructions:', instructions);
+		console.log('🔍 DEBUG: extractedData:', JSON.stringify(extractedData, null, 2));
+		
 		// Use current form values or extracted data
 		const currentTitle = title || extractedData?.title;
 		const currentIngredients = ingredients.length > 0 && ingredients.some(i => i.trim()) 
 			? ingredients 
 			: extractedData?.ingredients || [];
+		
+		console.log('🔍 DEBUG: Computed values for save:');
+		console.log('  - currentTitle:', currentTitle);
+		console.log('  - currentIngredients:', JSON.stringify(currentIngredients, null, 2));
 		
 		if (!currentTitle || currentIngredients.filter(i => i.trim()).length === 0) {
 			extractionError = 'Please provide a title and at least one ingredient';
@@ -206,6 +241,8 @@
 				extractionMethod: extractedData?._extractionMethod,
 				confidence: extractedData?.confidence
 			};
+
+			console.log('🔍 DEBUG: Final recipe payload before API call:', JSON.stringify(recipeData, null, 2));
 
 			await apiService.createRecipe(recipeData);
 			
@@ -234,6 +271,8 @@
 	// Smart editor handlers
 	function handleSmartEditorSave(event) {
 		const { editedData } = event.detail;
+		console.log('🔍 DEBUG: Smart editor save triggered with data:', JSON.stringify(editedData, null, 2));
+		
 		// Use edited data from smart editor
 		extractedData = editedData;
 		title = editedData.title;
@@ -242,6 +281,14 @@
 		difficulty = editedData.difficulty;
 		ingredients = editedData.ingredients;
 		instructions = editedData.instructions;
+		
+		console.log('🔍 DEBUG: Form variables updated from smart editor:');
+		console.log('  - title:', title);
+		console.log('  - category:', category);
+		console.log('  - cookingTime:', cookingTime);
+		console.log('  - difficulty:', difficulty);
+		console.log('  - ingredients:', JSON.stringify(ingredients, null, 2));
+		console.log('  - instructions:', instructions);
 		
 		// Save the recipe
 		saveRecipe();

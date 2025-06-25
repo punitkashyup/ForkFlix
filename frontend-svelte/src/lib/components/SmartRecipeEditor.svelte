@@ -107,25 +107,11 @@
     hasUnsavedChanges = false;
   }
   
-  // Mock AI suggestions (in real app, these would come from the backend)
+  // AI suggestions would come from the backend in real implementation
   const mockSuggestions = {
-    title: [
-      'Delicious Homemade Pasta Recipe',
-      'Quick & Easy Pasta Dish',
-      'Traditional Italian Pasta'
-    ],
-    ingredients: [
-      'pasta',
-      'olive oil', 
-      'garlic',
-      'parmesan cheese',
-      'fresh basil'
-    ],
-    category: [
-      'Main Course',
-      'Italian',
-      'Dinner'
-    ]
+    title: [],
+    ingredients: [],
+    category: []
   };
 </script>
 
