@@ -92,8 +92,7 @@ class InstagramService:
             from app.core.config import settings
             proxied_thumbnail = f"{settings.backend_url}/api/v1/proxy/instagram-image?url={quote(thumbnail_url)}" if thumbnail_url else None
             
-            embed_html = f'''<div class="instagram-preview-card" style="border: 1px solid #dbdbdb; border-radius: 8px; overflow: hidden; max-width: {max_width or 540}px; margin: 0 auto; background: white; position: relative;">
-    {f'''<div style="position: relative; overflow: hidden; border-radius: 8px 8px 0 0;">
+            thumbnail_section = f'''<div style="position: relative; overflow: hidden; border-radius: 8px 8px 0 0;">
         <img src="{proxied_thumbnail}" alt="Instagram post preview" style="width: 100%; height: auto; display: block;" onerror="this.style.display='none'">
         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: rgba(0, 0, 0, 0.7); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;" onclick="window.open('{url}', '_blank')">
             <svg width="24" height="24" fill="white" viewBox="0 0 24 24">
@@ -103,7 +102,10 @@ class InstagramService:
         <div style="position: absolute; top: 12px; right: 12px; background: rgba(0, 0, 0, 0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600;">
             {"REEL" if "/reel/" in url else "VIDEO"}
         </div>
-    </div>''' if proxied_thumbnail else ''}
+    </div>''' if proxied_thumbnail else ''
+            
+            embed_html = f'''<div class="instagram-preview-card" style="border: 1px solid #dbdbdb; border-radius: 8px; overflow: hidden; max-width: {max_width or 540}px; margin: 0 auto; background: white; position: relative;">
+    {thumbnail_section}
     <div style="padding: 16px;">
         <div style="display: flex; align-items: center; margin-bottom: 12px;">
             <div style="width: 32px; height: 32px; background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
