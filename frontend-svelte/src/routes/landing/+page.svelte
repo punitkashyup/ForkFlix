@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { user } from '$lib/stores/auth.js';
+	import Lenis from 'lenis';
 
 	let currentFeature = 0;
 	let isVisible = false;
@@ -58,12 +59,36 @@
 
 	onMount(() => {
 		isVisible = true;
+		
+		// Initialize Lenis smooth scroll
+		const lenis = new Lenis({
+			duration: 1.2,
+			easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+			direction: 'vertical',
+			gestureDirection: 'vertical',
+			smooth: true,
+			mouseMultiplier: 1,
+			smoothTouch: false,
+			touchMultiplier: 2,
+			infinite: false,
+		});
+
+		function raf(time) {
+			lenis.raf(time);
+			requestAnimationFrame(raf);
+		}
+
+		requestAnimationFrame(raf);
+		
 		// Cycle through features every 3 seconds
 		const interval = setInterval(() => {
 			currentFeature = (currentFeature + 1) % features.length;
 		}, 3000);
 
-		return () => clearInterval(interval);
+		return () => {
+			clearInterval(interval);
+			lenis.destroy();
+		};
 	});
 
 	function handleGetStarted() {
@@ -75,8 +100,11 @@
 	}
 
 	function handleTryDemo() {
-		// Scroll to demo section or show demo modal
-		document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
+		// Scroll to demo section using Lenis smooth scroll
+		const target = document.getElementById('how-it-works');
+		if (target) {
+			target.scrollIntoView({ behavior: 'smooth' });
+		}
 	}
 </script>
 
