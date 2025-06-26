@@ -255,11 +255,24 @@ async def update_recipe(
 ):
     """Update an existing recipe"""
     try:
+        logger.info(f"🔍 DEBUG: Updating recipe {recipe_id} for user {current_user['uid']}")
+        logger.info(f"🔍 DEBUG: Received update data: {recipe_data.dict()}")
+        
         # Prepare update data (only include non-None fields)
         update_data = {}
         for field, value in recipe_data.dict(exclude_unset=True).items():
             if value is not None:
-                update_data[field] = value
+                # Convert Pydantic types to Firestore-compatible types
+                if hasattr(value, '__str__') and (field == 'instagramUrl' or 'Url' in field):
+                    # Convert HttpUrl to string
+                    update_data[field] = str(value)
+                elif hasattr(value, 'value'):
+                    # Convert enums to their string values
+                    update_data[field] = value.value
+                else:
+                    update_data[field] = value
+        
+        logger.info(f"🔍 DEBUG: Prepared update_data (converted): {update_data}")
         
         if not update_data:
             raise HTTPException(

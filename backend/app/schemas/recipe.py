@@ -47,15 +47,33 @@ class RecipeCreate(BaseModel):
 
 
 class RecipeUpdate(BaseModel):
+    instagramUrl: Optional[HttpUrl] = Field(None, description="Instagram reel/post URL")
     title: Optional[str] = Field(None, min_length=3, max_length=100)
     category: Optional[RecipeCategory] = None
     cookingTime: Optional[int] = Field(None, ge=1, le=1440)
     difficulty: Optional[RecipeDifficulty] = None
     ingredients: Optional[List[str]] = Field(None, max_items=50)
     instructions: Optional[str] = None
+    embedCode: Optional[str] = Field(None, description="Instagram embed code")
+    thumbnailUrl: Optional[str] = Field(None, description="Recipe thumbnail URL")
+    aiExtracted: Optional[bool] = Field(None, description="Whether data was AI extracted")
+    extractionMethod: Optional[str] = Field(None, description="AI extraction method used")
+    confidence: Optional[float] = Field(None, ge=0, le=1, description="AI extraction confidence")
     tags: Optional[List[str]] = Field(None, max_items=20)
     dietaryInfo: Optional[List[DietaryInfo]] = None
     isPublic: Optional[bool] = None
+
+    @validator('thumbnailUrl', pre=True)
+    def validate_thumbnail_url(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
+
+    @validator('embedCode', pre=True)
+    def validate_embed_code(cls, v):
+        if v == "" or v is None:
+            return None
+        return v
 
 
 class RecipeResponse(Recipe):
