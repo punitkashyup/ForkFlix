@@ -2,7 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from app.api.v1 import recipes, instagram, ai, auth, proxy, multimodal_extraction
+from app.api.v1 import recipes, instagram, ai, proxy, multimodal_extraction
+# DISABLED: auth module removed - Firebase handles authentication on frontend
 from app.core.config import settings
 from app.core.database import firebase_service
 from app.schemas.responses import HealthCheckResponse
@@ -74,11 +75,12 @@ app.include_router(
     tags=["ai"]
 )
 
-app.include_router(
-    auth.router,
-    prefix=f"{settings.api_v1_prefix}/auth",
-    tags=["auth"]
-)
+# DISABLED: Auth endpoints not used - Firebase handles authentication on frontend
+# app.include_router(
+#     auth.router,
+#     prefix=f"{settings.api_v1_prefix}/auth",
+#     tags=["auth"]
+# )
 
 app.include_router(
     proxy.router,

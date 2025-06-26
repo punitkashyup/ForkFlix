@@ -213,8 +213,9 @@ async def get_instagram_metadata(
         )
 
 
-@router.get("/health")
-async def instagram_service_health():
+# DISABLED: Unused endpoint - removed for cleanup
+# @router.get("/health")
+# async def instagram_service_health():
     """
     Check Instagram service health
     
@@ -251,11 +252,12 @@ async def instagram_service_health():
 # Removed redundant /url-info endpoint - functionality merged into /validate
 
 
-@router.post("/bulk-validate")
-async def bulk_validate_urls(
-    request: dict,
-    current_user: dict = Depends(get_current_user)
-):
+# DISABLED: Unused endpoint - removed for cleanup
+# @router.post("/bulk-validate")
+# async def bulk_validate_urls(
+#     request: dict,
+#     current_user: dict = Depends(get_current_user)
+# ):
     """
     Validate multiple Instagram URLs in bulk
     

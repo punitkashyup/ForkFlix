@@ -68,15 +68,10 @@ class ApiService {
 	}
 
 	async updateRecipe(id, data) {
-		console.log('🔍 DEBUG: API Service updateRecipe called with data:', JSON.stringify(data, null, 2));
-		
-		const result = await this.request(`/api/v1/recipes/${id}`, {
+		return this.request(`/api/v1/recipes/${id}`, {
 			method: 'PUT',
 			body: JSON.stringify(data)
 		});
-		
-		console.log('🔍 DEBUG: API Service updateRecipe response:', JSON.stringify(result, null, 2));
-		return result;
 	}
 
 	async deleteRecipe(id) {

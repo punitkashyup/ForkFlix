@@ -78,8 +78,6 @@ class FirebaseService:
     async def update_recipe(self, recipe_id: str, user_id: str, update_data: Dict[str, Any]) -> bool:
         """Update a recipe"""
         try:
-            logger.info(f"🔍 DEBUG: Firebase update_recipe called for {recipe_id} with data: {update_data}")
-            
             db = self._get_db()
             if not db:
                 logger.error("Firestore not available")
@@ -89,27 +87,16 @@ class FirebaseService:
             doc = doc_ref.get()
             
             if not doc.exists:
-                logger.error(f"Recipe {recipe_id} does not exist")
                 return False
             
             recipe_data = doc.to_dict()
-            logger.info(f"🔍 DEBUG: Current recipe data: {recipe_data}")
-            
             if recipe_data.get('userId') != user_id:
-                logger.error(f"User {user_id} does not own recipe {recipe_id}")
                 return False
             
             # Add update timestamp
             update_data['updatedAt'] = datetime.utcnow()
             
-            logger.info(f"🔍 DEBUG: Final update_data being written to Firestore: {update_data}")
             doc_ref.update(update_data)
-            
-            # Verify the update
-            updated_doc = doc_ref.get()
-            updated_data = updated_doc.to_dict()
-            logger.info(f"🔍 DEBUG: Updated recipe data after write: {updated_data}")
-            
             logger.info(f"Recipe {recipe_id} updated successfully")
             return True
             

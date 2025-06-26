@@ -96,11 +96,12 @@ async def extract_ingredients(
         )
 
 
-@router.post("/categorize", response_model=Dict[str, Any])
-async def categorize_recipe(
-    data: Dict[str, Any],
-    current_user: dict = Depends(get_current_user)
-):
+# DISABLED: Unused endpoint - removed for cleanup
+# @router.post("/categorize", response_model=Dict[str, Any])
+# async def categorize_recipe(
+#     data: Dict[str, Any],
+#     current_user: dict = Depends(get_current_user)
+# ):
     """
     Categorize recipe using AI based on text content
     
