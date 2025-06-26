@@ -7,7 +7,12 @@
 	import { signOut } from 'firebase/auth';
 	import { auth } from '$lib/config/firebase.js';
 	import Loading from '$lib/components/Loading.svelte';
-	import LandingPage from '$lib/components/LandingPage.svelte';
+	import { goto as gotoPage } from '$app/navigation';
+	
+	// Redirect to landing page for non-authenticated users
+	$: if (!$user && $authInitialized) {
+		gotoPage('/landing');
+	}
 	
 	let searchTerm = '';
 	let selectedCategory = '';
@@ -170,9 +175,7 @@
 
 	<!-- Main Content -->
 	<main>
-		{#if !$user}
-			<LandingPage />
-		{:else}
+		{#if $user}
 			<!-- Logged-in user content -->
 			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				<h2 class="heading-tablet-responsive font-bold text-gray-900 mb-6">Your Recipes</h2>

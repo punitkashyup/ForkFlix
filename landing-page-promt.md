@@ -1,9 +1,5 @@
 # Landing Page Redesign Request
 
-## Current Status
-- This is the current landing page of my website.
-- I’ve attached images/screenshots for reference.
-
 ## Project Overview
 - This website is focused on A fun, mobile-friendly web app that lets users save and organize food recipe videos from platforms like Instagram Reels and YouTube Shorts, with a sprinkle of AI magic. Just paste a video link, and the app will: 🔗 Embed or download the video 🧠 Use AI to extract ingredients directly from the video (audio and visuals — not scraped from the internet!) 🍽️ Auto-organize recipes by meal type (like Starters, Mains) and estimated cooking time 💾 Save your favorite food videos in one place for easy access and replay 💡 Why? We all save food videos but never actually find them again — this project makes it fun and easy to watch, cook, and organize recipes from short-form content, all without switching apps or digging through social media bookmarks..
 
