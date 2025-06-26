@@ -7,6 +7,8 @@
 	import { signOut } from 'firebase/auth';
 	import { auth } from '$lib/config/firebase.js';
 	import Loading from '$lib/components/Loading.svelte';
+	import SafeImage from '$lib/components/SafeImage.svelte';
+	import { safeLogout } from '$lib/utils/auth-guard.js';
 	import { goto as gotoPage } from '$app/navigation';
 	
 	// Redirect to landing page for non-authenticated users
@@ -82,14 +84,7 @@
 	}
 
 	async function handleLogout() {
-		try {
-			await signOut(auth);
-			// The auth state listener in +layout.svelte will handle clearing the user store
-			goto('/');
-		} catch (err) {
-			console.error('Logout error:', err);
-			error.set('Failed to logout');
-		}
+		await safeLogout(auth, signOut);
 	}
 
 	// Close dropdown when clicking outside
@@ -126,17 +121,12 @@
 								on:click={() => showUserMenu = !showUserMenu}
 								class="flex items-center space-x-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 rounded-xl px-3 py-2 transition-all duration-200"
 							>
-								{#if $user.photoURL}
-									<img 
-										src={$user.photoURL} 
-										alt="Profile" 
-										class="w-8 h-8 rounded-full"
-									>
-								{:else}
-									<div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-medium">
-										{($user.displayName || $user.email || 'U').charAt(0).toUpperCase()}
-									</div>
-								{/if}
+								<SafeImage 
+									src={$user.photoURL} 
+									alt="Profile" 
+									fallbackText={$user.displayName || $user.email}
+									size="sm"
+								/>
 								<span class="text-sm font-medium">{$user.displayName || $user.email}</span>
 								<svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>

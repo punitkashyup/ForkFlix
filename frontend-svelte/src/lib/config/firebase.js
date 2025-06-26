@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { browser } from '$app/environment';
 import { 
 	PUBLIC_FIREBASE_API_KEY,
@@ -24,10 +24,19 @@ const firebaseConfig = {
 // Initialize Firebase only in browser
 let app;
 let auth;
+let googleProvider;
 
 if (browser) {
 	app = initializeApp(firebaseConfig);
 	auth = getAuth(app);
+	
+	// Initialize Google provider
+	googleProvider = new GoogleAuthProvider();
+	googleProvider.addScope('profile');
+	googleProvider.addScope('email');
+	googleProvider.setCustomParameters({
+		prompt: 'select_account'
+	});
 }
 
-export { auth };
+export { auth, googleProvider };

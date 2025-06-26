@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 
-// User authentication store
+// User authentication store with enhanced user data
 export const user = writable(null);
 
 // Auth initialization state (prevents FOUC)
@@ -11,6 +11,18 @@ export const loading = writable(false);
 
 // Error states
 export const error = writable(null);
+
+// User profile data store for additional social login information
+export const userProfile = writable({
+	uid: null,
+	email: null,
+	displayName: null,
+	photoURL: null,
+	phoneNumber: null,
+	providerData: [],
+	metadata: null,
+	customClaims: null
+});
 
 // Recipes store
 export const recipes = writable([]);
