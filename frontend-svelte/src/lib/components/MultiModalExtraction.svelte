@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import { apiService } from '$lib/services/api.js';
-  import LottieLoader from './LottieLoader.svelte';
+  import Loading from './Loading.svelte';
   
   const dispatch = createEventDispatcher();
   
@@ -353,14 +353,11 @@
   <div class="cooking-header">
     <div class="cooking-animation">
       {#if isExtracting}
-        <!-- Show specified Lottie animation when extracting -->
-        <div class="lottie-cooking">
-          <LottieLoader 
-            animationUrl="https://lottie.host/4f00edf8-40ff-4760-9032-2da56d2070af/GkBG1gfpsZ.lottie"
-            width={60}
-            height={60}
-            className="cooking-lottie"
-            speed={1.2}
+        <!-- Show modern spinner when extracting -->
+        <div class="cooking-spinner">
+          <Loading 
+            size="md"
+            message=""
           />
         </div>
       {:else}

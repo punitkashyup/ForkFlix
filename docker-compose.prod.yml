@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend-svelte
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - PUBLIC_API_URL=${API_URL:-http://backend:8000}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - forkflix-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`${DOMAIN:-localhost}`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    expose:
+      - "8000"
+    environment:
+      - FIREBASE_CREDENTIALS_PATH=/app/firebase-admin-key.json
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:80}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./firebase/firebase-admin-key.json:/app/firebase-admin-key.json:ro
+      - backend-logs:/app/logs
+      - backend-tmp:/app/tmp
+    restart: unless-stopped
+    networks:
+      - forkflix-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`${API_DOMAIN:-api.localhost}`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+
+  # Optional: Add Traefik for reverse proxy in production
+  # traefik:
+  #   image: traefik:v2.10
+  #   command:
+  #     - "--providers.docker=true"
+  #     - "--providers.docker.exposedbydefault=false"
+  #     - "--entrypoints.web.address=:80"
+  #     - "--entrypoints.websecure.address=:443"
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   networks:
+  #     - forkflix-network
+
+volumes:
+  backend-logs:
+  backend-tmp:
+
+networks:
+  forkflix-network:
+    driver: bridge

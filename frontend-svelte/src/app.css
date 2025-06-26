@@ -2,10 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles */
+/* ForkFlix Design System */
 @layer base {
+  /* Design Tokens */
+  :root {
+    /* Primary Colors - Blue to Purple Gradient Theme */
+    --primary-blue: #2563eb;
+    --primary-purple: #7c3aed;
+    --primary-gradient: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    
+    /* Secondary Colors */
+    --secondary-orange: #ea580c;
+    --secondary-green: #059669;
+    --secondary-red: #dc2626;
+    
+    /* Neutral Colors */
+    --neutral-50: #f8fafc;
+    --neutral-100: #f1f5f9;
+    --neutral-900: #0f172a;
+    
+    /* Background Gradients */
+    --bg-primary: linear-gradient(135deg, #f8fafc 0%, #dbeafe 100%);
+    --bg-card: rgba(255, 255, 255, 0.8);
+    
+    /* Shadows */
+    --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.15);
+    --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.05);
+    --shadow-hover: 0 20px 40px rgba(0, 0, 0, 0.1);
+    
+    /* Border Radius */
+    --radius-sm: 0.75rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 2rem;
+    
+    /* Typography */
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-family);
+  }
+  
+  body {
+    background: var(--bg-primary);
+    color: var(--neutral-900);
   }
   
   /* Tablet optimizations for 13-inch screens ONLY */
@@ -33,36 +74,131 @@
 }
 
 @layer components {
-  /* Enhanced button classes with tablet optimizations */
+  /* ForkFlix Component System */
+  
+  /* Buttons */
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply px-4 py-2 rounded-xl font-semibold transition-all duration-200 transform;
     @apply tablet:px-6 tablet:py-3 tablet:text-lg;
-    @apply desktop:px-4 desktop:py-2 desktop:text-base; /* Reset to normal on desktop */
+    @apply desktop:px-4 desktop:py-2 desktop:text-base;
   }
   
   .btn-primary {
-    @apply bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800;
-    @apply focus:ring-4 focus:ring-blue-200; /* Better focus for touch devices */
+    background: var(--primary-gradient);
+    @apply text-white shadow-lg;
+    @apply hover:scale-105 hover:shadow-xl;
+    @apply focus:ring-4 focus:ring-blue-200;
   }
   
   .btn-secondary {
-    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 active:bg-gray-400;
+    @apply bg-white/70 backdrop-blur-sm text-gray-700 border-2 border-gray-200;
+    @apply hover:bg-white hover:border-gray-300 hover:scale-105;
     @apply focus:ring-4 focus:ring-gray-200;
   }
   
-  /* Enhanced card classes with tablet spacing */
-  .card {
-    @apply bg-white rounded-lg shadow-md p-6;
-    @apply tablet:p-8 tablet:rounded-xl;
-    @apply desktop:p-6 desktop:rounded-lg; /* Reset to normal on desktop */
+  /* Modern Glass-morphism Cards */
+  .card-glass {
+    background: var(--bg-card);
+    @apply backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8;
+    box-shadow: var(--shadow-glass);
+    @apply tablet:p-10 tablet:rounded-3xl;
+    @apply desktop:p-8 desktop:rounded-2xl;
   }
   
-  /* Enhanced input classes with better touch targets */
+  /* Legacy card for backwards compatibility */
+  .card {
+    @apply card-glass;
+  }
+  
+  /* Modern Input System */
+  .input-modern {
+    @apply w-full px-4 py-4 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-2xl;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+    @apply text-gray-900 placeholder-gray-500 shadow-lg transition-all duration-200;
+    @apply tablet:px-6 tablet:py-5 tablet:text-lg tablet:rounded-3xl;
+    @apply desktop:px-4 desktop:py-4 desktop:text-base desktop:rounded-2xl;
+  }
+  
+  /* Legacy input for backwards compatibility */
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-md;
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
-    @apply tablet:px-4 tablet:py-3 tablet:text-lg tablet:rounded-lg;
-    @apply desktop:px-3 desktop:py-2 desktop:text-base desktop:rounded-md; /* Reset to normal on desktop */
+    @apply input-modern;
+  }
+  
+  /* Gradient Text Utilities */
+  .text-gradient-primary {
+    background: var(--primary-gradient);
+    @apply bg-clip-text text-transparent;
+  }
+  
+  .text-gradient-secondary {
+    background: linear-gradient(135deg, var(--secondary-orange) 0%, var(--secondary-red) 100%);
+    @apply bg-clip-text text-transparent;
+  }
+  
+  /* Tag System */
+  .tag {
+    @apply px-4 py-2 rounded-full font-semibold border transition-all duration-200 hover:scale-105;
+  }
+  
+  .tag-blue {
+    @apply bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border-blue-200;
+  }
+  
+  .tag-green {
+    @apply bg-gradient-to-r from-green-100 to-emerald-200 text-green-800 border-green-200;
+  }
+  
+  .tag-purple {
+    @apply bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-200;
+  }
+  
+  .tag-orange {
+    @apply bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 border-orange-200;
+  }
+  
+  .tag-yellow {
+    @apply bg-gradient-to-r from-yellow-100 to-amber-200 text-yellow-800 border-yellow-200;
+  }
+  
+  /* Alert System */
+  .alert {
+    @apply rounded-xl p-4 shadow-lg border;
+  }
+  
+  .alert-success {
+    @apply bg-gradient-to-r from-green-50 to-emerald-50 border-green-200;
+  }
+  
+  .alert-error {
+    @apply bg-gradient-to-r from-red-50 to-pink-50 border-red-200;
+  }
+  
+  .alert-warning {
+    @apply bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200;
+  }
+  
+  .alert-info {
+    @apply bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200;
+  }
+  
+  /* Loading Spinner */
+  .spinner-gradient {
+    @apply w-8 h-8 border-2 border-transparent rounded-full animate-spin;
+    background: conic-gradient(var(--primary-blue), var(--primary-purple), var(--primary-blue));
+  }
+  
+  /* Header System */
+  .header-glass {
+    @apply bg-white/90 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-50;
+  }
+  
+  /* Background Patterns */
+  .bg-gradient-primary {
+    background: var(--bg-primary);
+  }
+  
+  .bg-gradient-card {
+    background: var(--bg-card);
   }
   
   /* Responsive text utilities */
@@ -72,6 +208,14 @@
   
   .heading-tablet-responsive {
     @apply text-2xl tablet:text-3xl desktop:text-2xl;
+  }
+  
+  .heading-hero {
+    @apply text-3xl lg:text-4xl font-bold;
+  }
+  
+  .heading-section {
+    @apply text-2xl lg:text-3xl font-bold;
   }
   
   /* Grid optimizations for tablets only */
@@ -105,5 +249,39 @@
   
   .form-group-tablet {
     @apply tablet:grid tablet:grid-cols-2 tablet:gap-6 desktop:grid desktop:grid-cols-2 desktop:gap-4;
+  }
+}
+
+/* Custom Animations */
+@layer utilities {
+  /* Floating animation for decorative elements */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+  }
+  
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  /* Pulse glow animation */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(37, 99, 235, 0.6); }
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  /* Gradient animation for backgrounds */
+  @keyframes gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
   }
 }

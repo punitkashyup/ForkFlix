@@ -1,0 +1,50 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+
+# Development files
+.env.local
+.env.development
+.env.test
+
+# Node modules (will be installed in container)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+.svelte-kit/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage
+coverage/
+
+# Temporary files
+tmp/
+temp/

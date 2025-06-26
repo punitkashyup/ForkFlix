@@ -3,17 +3,17 @@ version: '3.8'
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ./frontend-svelte
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "80:80"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - PUBLIC_API_URL=http://backend:8000
     depends_on:
       - backend
+    restart: unless-stopped
+    networks:
+      - forkflix-network
 
   backend:
     build:
@@ -23,7 +23,19 @@ services:
       - "8000:8000"
     environment:
       - FIREBASE_CREDENTIALS_PATH=/app/firebase-admin-key.json
+      - CORS_ORIGINS=http://localhost:80,http://localhost:3000
     volumes:
-      - ./backend:/app
-      - ./firebase/firebase-admin-key.json:/app/firebase-admin-key.json
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - ./firebase/firebase-admin-key.json:/app/firebase-admin-key.json:ro
+      - backend-logs:/app/logs
+      - backend-tmp:/app/tmp
+    restart: unless-stopped
+    networks:
+      - forkflix-network
+
+volumes:
+  backend-logs:
+  backend-tmp:
+
+networks:
+  forkflix-network:
+    driver: bridge

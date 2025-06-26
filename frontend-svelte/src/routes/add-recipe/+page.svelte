@@ -529,36 +529,36 @@
 	<title>{editMode ? 'Edit Recipe' : 'Add Recipe'} - ForkFlix</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
 	<!-- Header -->
-	<header class="bg-white shadow-sm border-b">
+	<header class="bg-white/90 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-50">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between items-center h-16">
 				<button
 					on:click={() => goto('/')}
-					class="flex items-center text-gray-600 hover:text-gray-900"
+					class="flex items-center text-gray-600 hover:text-blue-600 transition-colors duration-200 font-medium"
 				>
 					← Back to Home
 				</button>
-				<h1 class="text-2xl font-bold text-gray-900">
-					{editMode ? `Edit Recipe${originalRecipe ? ': ' + originalRecipe.title : ''}` : 'Add New Recipe'}
+				<h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+					{editMode ? `✏️ Edit Recipe${originalRecipe ? ': ' + originalRecipe.title : ''}` : '✨ Add New Recipe'}
 				</h1>
 				<div></div>
 			</div>
 		</div>
 	</header>
 
-	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 		<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 			<!-- Left Column: Instagram URL and AI Extraction -->
 			<div class="space-y-6">
-				<div class="card">
-					<h2 class="text-xl font-semibold mb-4">🤖 Enhanced AI Recipe Extraction</h2>
+				<div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8">
+					<h2 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">🤖 Enhanced AI Recipe Extraction</h2>
 					
 					<div class="space-y-4">
 						<div>
-							<label for="instagram-url" class="block text-sm font-medium text-gray-700 mb-2">
-								Instagram URL
+							<label for="instagram-url" class="block text-sm font-semibold text-gray-700 mb-3">
+								📱 Instagram URL
 							</label>
 							<div class="relative">
 								<input
@@ -567,10 +567,10 @@
 									bind:value={instagramUrl}
 									on:paste={handleUrlPaste}
 									placeholder="https://www.instagram.com/reel/..."
-									class="input pr-10 {
-										instagramUrl && urlValidation.valid && apiValidation?.valid ? 'border-green-500' : 
-										instagramUrl && !urlValidation.valid ? 'border-red-500' : 
-										instagramUrl && urlValidation.valid && urlValidation.isValidating ? 'border-blue-500' : ''
+									class="w-full pl-4 pr-12 py-4 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500 shadow-lg transition-all duration-200 {
+										instagramUrl && urlValidation.valid && apiValidation?.valid ? 'border-green-500 ring-2 ring-green-200' : 
+										instagramUrl && !urlValidation.valid ? 'border-red-500 ring-2 ring-red-200' : 
+										instagramUrl && urlValidation.valid && urlValidation.isValidating ? 'border-blue-500 ring-2 ring-blue-200' : ''
 									}"
 								>
 								
@@ -594,27 +594,36 @@
 							
 							<!-- Validation Messages -->
 							{#if instagramUrl && !urlValidation.valid}
-								<div class="mt-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-2">
-									❌ {urlValidation.message}
+								<div class="mt-3 text-sm text-red-600 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-xl p-4 shadow-lg">
+									<div class="flex items-center space-x-2">
+										<span class="text-lg">❌</span>
+										<span class="font-medium">{urlValidation.message}</span>
+									</div>
 								</div>
 							{/if}
 							
 							{#if urlValidation.valid && !apiValidation && !urlValidation.isValidating}
-								<div class="mt-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded p-2">
-									⏱️ Auto-validating URL accessibility...
+								<div class="mt-3 text-sm text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
+									<div class="flex items-center space-x-2">
+										<span class="text-lg">⏱️</span>
+										<span class="font-medium">Auto-validating URL accessibility...</span>
+									</div>
 								</div>
 							{/if}
 							
 							{#if urlValidation.isValidating}
-								<div class="mt-2 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded p-2">
-									🔍 Checking URL accessibility and content quality...
+								<div class="mt-3 text-sm text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-lg">
+									<div class="flex items-center space-x-2">
+										<span class="text-lg">🔍</span>
+										<span class="font-medium">Checking URL accessibility and content quality...</span>
+									</div>
 								</div>
 							{/if}
 							
 							<!-- API Validation Results -->
 							{#if apiValidation}
 								{#if apiValidation.valid}
-									<div class="mt-2 text-sm text-green-600 bg-green-50 border border-green-200 rounded p-3">
+									<div class="mt-3 text-sm text-green-600 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 shadow-lg">
 										<div class="font-medium">✅ {apiValidation.message}</div>
 										<div class="flex items-center gap-2 mt-1">
 											<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-medium">
@@ -773,7 +782,7 @@
 
 				<!-- Instagram Preview -->
 				{#if embedCode || thumbnailUrl}
-					<div class="card">
+					<div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8">
 						<h3 class="text-lg font-semibold mb-4">📱 Instagram Preview</h3>
 						{#if embedCode}
 							<div class="instagram-embed">
@@ -798,7 +807,7 @@
 			<div class="space-y-6">
 				{#if showSmartEditor && extractedData}
 					<!-- Smart Recipe Editor with Confidence Scores -->
-					<div class="card">
+					<div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8">
 						<SmartRecipeEditor
 							bind:recipeData={extractedData}
 							bind:extractionData={extractionData}
@@ -838,7 +847,7 @@
 					</div>
 				{:else}
 					<!-- Basic Recipe Form -->
-					<div class="card">
+					<div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8">
 						<h2 class="text-xl font-semibold mb-4">📝 Recipe Details</h2>
 					
 					<form on:submit|preventDefault={saveRecipe} class="form-tablet">

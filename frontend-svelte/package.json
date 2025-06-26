@@ -24,7 +24,7 @@
     "vite": "^6.3.5"
   },
   "dependencies": {
-    "firebase": "^11.9.1",
-    "lottie-web": "^5.13.0"
+    "@sveltejs/adapter-static": "^3.0.8",
+    "firebase": "^11.9.1"
   }
 }
