@@ -1,11 +1,12 @@
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional, List, Dict, TypeVar, Generic
 from pydantic import BaseModel, Field
 
+T = TypeVar('T')
 
-class SuccessResponse(BaseModel):
+class SuccessResponse(BaseModel, Generic[T]):
     success: bool = Field(default=True, description="Operation success status")
     message: str = Field(..., description="Success message")
-    data: Optional[Any] = Field(None, description="Response data")
+    data: Optional[T] = Field(None, description="Response data")
 
 
 class ErrorResponse(BaseModel):

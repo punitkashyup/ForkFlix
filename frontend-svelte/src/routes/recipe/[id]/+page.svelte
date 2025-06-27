@@ -3,6 +3,7 @@
 	import { page } from '$app/stores';
 	import { user, loading, error } from '$lib/stores/auth.js';
 	import { apiService } from '$lib/services/api.js';
+	import { shoppingListService } from '$lib/services/shoppingListService.js';
 	import { goto } from '$app/navigation';
 	import Loading from '$lib/components/Loading.svelte';
 	
@@ -11,6 +12,8 @@
 	let recipeError = '';
 	let deleteConfirm = false;
 	let isDeleting = false;
+	let isCreatingShoppingList = false;
+	let shoppingListSuccess = false;
 	
 	$: recipeId = $page.params.id;
 	
@@ -88,6 +91,38 @@
 		// Navigate to edit page (could be add-recipe with pre-filled data)
 		goto(`/add-recipe?edit=${recipe.id}`);
 	}
+
+	async function createShoppingListFromRecipe() {
+		if (!recipe?.id) return;
+		
+		try {
+			isCreatingShoppingList = true;
+			
+			const shoppingList = await shoppingListService.generateFromRecipes(
+				[recipe.id],
+				{
+					listName: `${recipe.title} - Shopping List`,
+					consolidateDuplicates: true,
+					checkPantry: true,
+					optimizeCategories: true,
+					includeAlternatives: true
+				}
+			);
+			
+			shoppingListSuccess = true;
+			
+			// Show success for 2 seconds then navigate to shopping list page
+			setTimeout(() => {
+				goto('/shopping-list');
+			}, 2000);
+			
+		} catch (err) {
+			console.error('❌ Error creating shopping list:', err);
+			recipeError = `Failed to create shopping list: ${err.message}`;
+		} finally {
+			isCreatingShoppingList = false;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -110,6 +145,21 @@
 				{#if recipe}
 					<div class="flex items-center space-x-2">
 						<button
+							on:click={createShoppingListFromRecipe}
+							disabled={isCreatingShoppingList}
+							class="flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+							title="Create Shopping List"
+						>
+							{#if isCreatingShoppingList}
+								<span class="inline-flex items-center">
+									<div class="inline-block animate-spin rounded-full h-3 w-3 border border-white border-b-transparent mr-2"></div>
+									Creating...
+								</span>
+							{:else}
+								🛒 Shopping List
+							{/if}
+						</button>
+						<button
 							on:click={editRecipe}
 							class="flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg text-sm font-medium"
 							title="Edit Recipe"
@@ -130,6 +180,19 @@
 	</header>
 
 	<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+		<!-- Success Notification -->
+		{#if shoppingListSuccess}
+			<div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-6 shadow-lg mb-6">
+				<div class="flex items-center space-x-3">
+					<div class="text-2xl">✅</div>
+					<div>
+						<p class="text-green-800 font-bold">Shopping List Created Successfully!</p>
+						<p class="text-green-700">Redirecting you to the shopping list page...</p>
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		{#if recipeLoading}
 			<div class="text-center py-16">
 				<div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4 animate-spin">

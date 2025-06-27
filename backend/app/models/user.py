@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, EmailStr, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 from app.models.recipe import RecipeCategory
 
 
@@ -12,7 +12,7 @@ class UserPreferences(BaseModel):
 
 class User(BaseModel):
     uid: str = Field(..., description="Firebase Auth UID")
-    email: EmailStr = Field(..., description="User email address")
+    email: str = Field(..., description="User email address")
     displayName: str = Field(..., min_length=1, max_length=100, description="Display name")
     photoURL: Optional[HttpUrl] = Field(None, description="Profile picture URL")
     recipeCount: int = Field(default=0, ge=0, description="Number of recipes created")
@@ -37,7 +37,7 @@ class User(BaseModel):
 
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str
     displayName: str = Field(..., min_length=1, max_length=100)
     photoURL: Optional[HttpUrl] = None
 
@@ -55,7 +55,7 @@ class UserResponse(User):
 
 class UserProfile(BaseModel):
     uid: str
-    email: EmailStr
+    email: str
     displayName: str
     photoURL: Optional[HttpUrl] = None
     recipeCount: int

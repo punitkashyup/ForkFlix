@@ -8,6 +8,10 @@
 	import { auth } from '$lib/config/firebase.js';
 	import Loading from '$lib/components/Loading.svelte';
 	import SafeImage from '$lib/components/SafeImage.svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import Button from '$lib/components/Button.svelte';
+	import SkeletonLoader from '$lib/components/SkeletonLoader.svelte';
+	import { enhancedGoto } from '$lib/stores/navigation.js';
 	import { safeLogout } from '$lib/utils/auth-guard.js';
 	import { goto as gotoPage } from '$app/navigation';
 	
@@ -21,6 +25,14 @@
 	let filteredRecipes = [];
 	let showUserMenu = false;
 	let hasAttemptedFetch = false;
+	let selectedRecipeIds = [];
+	let showBulkActions = false;
+	let showDeleteModal = false;
+	let recipeToDelete = null;
+	let deletingRecipe = false;
+	let navigatingToRecipe = null;
+	let showMultiDeleteModal = false;
+	let deletingMultipleRecipes = false;
 	
 	// Subscribe to recipes store
 	$: filteredRecipes = $recipes.filter(recipe => {
@@ -80,7 +92,16 @@
 	}
 
 	function handleAddRecipe() {
-		goto('/add-recipe');
+		enhancedGoto('/add-recipe');
+	}
+
+	async function navigateToRecipe(recipeId) {
+		navigatingToRecipe = recipeId;
+		try {
+			await enhancedGoto(`/recipe/${recipeId}`);
+		} finally {
+			navigatingToRecipe = null;
+		}
 	}
 
 	async function handleLogout() {
@@ -93,13 +114,127 @@
 			showUserMenu = false;
 		}
 	}
+
+	function toggleRecipeSelection(recipeId, event = null) {
+		if (event) {
+			event.stopPropagation();
+		}
+		if (selectedRecipeIds.includes(recipeId)) {
+			selectedRecipeIds = selectedRecipeIds.filter(id => id !== recipeId);
+		} else {
+			selectedRecipeIds = [...selectedRecipeIds, recipeId];
+		}
+		showBulkActions = selectedRecipeIds.length > 0;
+	}
+
+	function handleCardClick(recipeId, event) {
+		// Don't toggle selection if clicking on the "View Recipe" button or checkbox
+		if (event.target.closest('button') || event.target.closest('input')) {
+			return;
+		}
+		toggleRecipeSelection(recipeId);
+	}
+
+	function selectAllRecipes() {
+		selectedRecipeIds = filteredRecipes.map(recipe => recipe.id);
+		showBulkActions = true;
+	}
+
+	function clearSelection() {
+		selectedRecipeIds = [];
+		showBulkActions = false;
+	}
+
+	function createShoppingListFromSelected() {
+		if (selectedRecipeIds.length === 0) return;
+		
+		// Navigate to shopping list page with selected recipes
+		const queryParams = new URLSearchParams();
+		selectedRecipeIds.forEach(id => queryParams.append('recipe', id));
+		enhancedGoto(`/shopping-list?${queryParams.toString()}`);
+	}
+
+	function handleDeleteRecipe(recipe) {
+		recipeToDelete = recipe;
+		showDeleteModal = true;
+	}
+
+	function handleDeleteCancel() {
+		showDeleteModal = false;
+		recipeToDelete = null;
+	}
+
+	async function handleDeleteConfirm() {
+		if (!recipeToDelete) return;
+		
+		try {
+			deletingRecipe = true;
+			await apiService.deleteRecipe(recipeToDelete.id);
+			
+			// Remove from local store
+			recipes.update(currentRecipes => 
+				currentRecipes.filter(r => r.id !== recipeToDelete.id)
+			);
+			
+			// Remove from selected recipes if it was selected
+			selectedRecipeIds = selectedRecipeIds.filter(id => id !== recipeToDelete.id);
+			showBulkActions = selectedRecipeIds.length > 0;
+			
+			// Close modal
+			showDeleteModal = false;
+			recipeToDelete = null;
+			
+		} catch (err) {
+			console.error('Failed to delete recipe:', err);
+			error.set('Failed to delete recipe. Please try again.');
+		} finally {
+			deletingRecipe = false;
+		}
+	}
+
+	function handleDeleteMultipleRecipes() {
+		if (selectedRecipeIds.length === 0) return;
+		showMultiDeleteModal = true;
+	}
+
+	function handleMultiDeleteCancel() {
+		showMultiDeleteModal = false;
+	}
+
+	async function handleMultiDeleteConfirm() {
+		if (selectedRecipeIds.length === 0) return;
+		
+		try {
+			deletingMultipleRecipes = true;
+			
+			// Delete all selected recipes
+			const deletePromises = selectedRecipeIds.map(id => apiService.deleteRecipe(id));
+			await Promise.all(deletePromises);
+			
+			// Remove from local store
+			recipes.update(currentRecipes => 
+				currentRecipes.filter(r => !selectedRecipeIds.includes(r.id))
+			);
+			
+			// Clear selection and close modal
+			selectedRecipeIds = [];
+			showBulkActions = false;
+			showMultiDeleteModal = false;
+			
+		} catch (err) {
+			console.error('Failed to delete recipes:', err);
+			error.set('Failed to delete some recipes. Please try again.');
+		} finally {
+			deletingMultipleRecipes = false;
+		}
+	}
 </script>
 
 <svelte:head>
 	<title>ForkFlix - Recipe Manager</title>
 </svelte:head>
 
-<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" on:click={handleClickOutside} on:keydown={handleClickOutside} role="main">
+<div class="min-h-screen" on:click={handleClickOutside} on:keydown={handleClickOutside} role="main">
 	<!-- Header -->
 	<header class="bg-white/90 backdrop-blur-md shadow-lg border-b border-white/20 sticky top-0 z-50">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -110,12 +245,20 @@
 				
 				<div class="flex items-center space-x-4">
 					{#if $user}
-						<button
+						<Button
+							variant="primary"
+							icon="✨"
 							on:click={handleAddRecipe}
-							class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-xl font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-lg"
 						>
-							✨ Add Recipe
-						</button>
+							Add Recipe
+						</Button>
+						<Button
+							variant="secondary"
+							icon="🛒"
+							on:click={() => enhancedGoto('/shopping-list')}
+						>
+							Shopping List
+						</Button>
 						<div class="relative user-menu">
 							<button 
 								on:click={() => showUserMenu = !showUserMenu}
@@ -136,10 +279,16 @@
 							{#if showUserMenu}
 								<div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 border">
 									<button
-										on:click={() => { showUserMenu = false; goto('/profile'); }}
+										on:click={() => { showUserMenu = false; enhancedGoto('/profile'); }}
 										class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
 									>
 										👤 Profile
+									</button>
+									<button
+										on:click={() => { showUserMenu = false; enhancedGoto('/shopping-list'); }}
+										class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+									>
+										🛒 Shopping Lists
 									</button>
 									<button
 										on:click={() => { showUserMenu = false; handleLogout(); }}
@@ -151,12 +300,12 @@
 							{/if}
 						</div>
 					{:else}
-						<button
+						<Button
+							variant="primary"
 							on:click={handleLogin}
-							class="btn btn-primary"
 						>
 							Login
-						</button>
+						</Button>
 					{/if}
 				</div>
 			</div>
@@ -173,6 +322,45 @@
 					<p class="text-xl text-gray-600 max-w-2xl mx-auto">Discover, organize, and cook your favorite recipes</p>
 				</div>
 				
+				<!-- Bulk Actions Bar -->
+				{#if showBulkActions}
+					<div class="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-6 flex items-center justify-between shadow-lg">
+						<div class="flex items-center space-x-4">
+							<span class="font-semibold text-green-800">
+								{selectedRecipeIds.length} recipe{selectedRecipeIds.length === 1 ? '' : 's'} selected
+							</span>
+							<button
+								on:click={selectAllRecipes}
+								class="text-green-600 hover:text-green-800 font-medium underline text-sm"
+							>
+								Select All ({filteredRecipes.length})
+							</button>
+							<button
+								on:click={clearSelection}
+								class="text-green-600 hover:text-green-800 font-medium underline text-sm"
+							>
+								Clear Selection
+							</button>
+						</div>
+						<div class="flex items-center space-x-3">
+							<Button
+								variant="secondary"
+								icon="🛒"
+								on:click={createShoppingListFromSelected}
+							>
+								Create Shopping List
+							</Button>
+							<Button
+								variant="danger"
+								icon="🗑️"
+								on:click={handleDeleteMultipleRecipes}
+							>
+								Delete Selected
+							</Button>
+						</div>
+					</div>
+				{/if}
+
 				<!-- Search and Filter -->
 				<div class="flex flex-col sm:flex-row gap-6 mb-8">
 					<div class="relative flex-1">
@@ -203,11 +391,8 @@
 
 				<!-- Loading State -->
 				{#if $loading}
-					<div class="text-center py-16">
-						<div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4 animate-spin">
-							<div class="w-8 h-8 bg-white rounded-full"></div>
-						</div>
-						<p class="text-xl text-gray-600 font-medium">Loading your delicious recipes...</p>
+					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+						<SkeletonLoader type="card" count={8} />
 					</div>
 				{:else if $error}
 					<div class="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-6 shadow-lg">
@@ -228,18 +413,37 @@
 						<p class="text-xl text-gray-600 mb-8 max-w-md mx-auto">
 							Start building your collection by adding your first recipe from Instagram or YouTube!
 						</p>
-						<button
+						<Button
+							variant="primary"
+							size="lg"
+							icon="✨"
 							on:click={handleAddRecipe}
-							class="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-2xl font-bold text-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 transform hover:scale-105 shadow-xl"
 						>
-							✨ Add Your First Recipe
-						</button>
+							Add Your First Recipe
+						</Button>
 					</div>
 				{:else}
 					<!-- Recipe Grid -->
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 						{#each filteredRecipes as recipe (recipe.id)}
-							<div class="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden h-full flex flex-col border border-white/20 hover:border-blue-200 transform hover:scale-[1.02]">
+							<div class="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden h-full flex flex-col border border-white/20 hover:border-blue-200 transform hover:scale-[1.02] relative"
+								 class:ring-2={selectedRecipeIds.includes(recipe.id)}
+								 class:ring-green-500={selectedRecipeIds.includes(recipe.id)}
+								 class:bg-green-50={selectedRecipeIds.includes(recipe.id)}
+								 on:click={(e) => handleCardClick(recipe.id, e)}
+								 role="button"
+								 tabindex="0"
+								 on:keydown={(e) => e.key === 'Enter' && handleCardClick(recipe.id, e)}>
+								
+								<!-- Selection Checkbox -->
+								<div class="absolute top-2 right-2 z-10">
+									<input
+										type="checkbox"
+										checked={selectedRecipeIds.includes(recipe.id)}
+										on:change={(e) => toggleRecipeSelection(recipe.id, e)}
+										class="w-5 h-5 text-green-600 bg-white border-2 border-gray-300 rounded focus:ring-green-500 focus:ring-2 shadow-lg"
+									/>
+								</div>
 								<!-- Recipe thumbnail -->
 								{#if recipe.thumbnailUrl}
 									<div class="h-40 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden relative">
@@ -291,16 +495,27 @@
 										</p>
 									</div>
 									
-									<!-- Action Button -->
-									<button
-										on:click={() => goto(`/recipe/${recipe.id}`)}
-										class="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 font-semibold text-sm transition-all duration-200 transform group-hover:scale-[1.02] shadow-lg hover:shadow-xl"
-									>
-										<span class="flex items-center justify-center space-x-2">
-											<span>View Recipe</span>
-											<span class="transform group-hover:translate-x-1 transition-transform duration-200">→</span>
-										</span>
-									</button>
+									<!-- Action Buttons -->
+									<div class="flex gap-2">
+										<Button
+											variant="primary"
+											size="sm"
+											fullWidth={true}
+											iconPosition="right"
+											icon="→"
+											loading={navigatingToRecipe === recipe.id}
+											on:click={() => navigateToRecipe(recipe.id)}
+										>
+											View Recipe
+										</Button>
+										<Button
+											variant="danger"
+											size="sm"
+											icon="🗑️"
+											on:click={() => handleDeleteRecipe(recipe)}
+											title="Delete Recipe"
+										/>
+									</div>
 								</div>
 							</div>
 						{/each}
@@ -310,6 +525,71 @@
 		{/if}
 	</main>
 </div>
+
+<!-- Delete Confirmation Modal -->
+<Modal
+	bind:open={showDeleteModal}
+	title="Delete Recipe"
+	confirmText="Delete"
+	cancelText="Cancel"
+	confirmVariant="danger"
+	loading={deletingRecipe}
+	on:confirm={handleDeleteConfirm}
+	on:cancel={handleDeleteCancel}
+	on:close={handleDeleteCancel}
+>
+	<div class="text-center">
+		<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+			<span class="text-2xl">⚠️</span>
+		</div>
+		<p class="text-gray-900 mb-2">
+			Are you sure you want to delete 
+			<strong class="font-semibold">"{recipeToDelete?.title}"</strong>?
+		</p>
+		<p class="text-sm text-gray-500">
+			This action cannot be undone. The recipe will be permanently removed from your collection.
+		</p>
+	</div>
+</Modal>
+
+<!-- Multi-Delete Confirmation Modal -->
+<Modal
+	bind:open={showMultiDeleteModal}
+	title="Delete Multiple Recipes"
+	confirmText="Delete All"
+	cancelText="Cancel"
+	confirmVariant="danger"
+	loading={deletingMultipleRecipes}
+	on:confirm={handleMultiDeleteConfirm}
+	on:cancel={handleMultiDeleteCancel}
+	on:close={handleMultiDeleteCancel}
+>
+	<div class="text-center">
+		<div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+			<span class="text-2xl">⚠️</span>
+		</div>
+		<p class="text-gray-900 mb-2">
+			Are you sure you want to delete 
+			<strong class="font-semibold">{selectedRecipeIds.length}</strong> 
+			selected recipe{selectedRecipeIds.length === 1 ? '' : 's'}?
+		</p>
+		<p class="text-sm text-gray-500 mb-3">
+			This action cannot be undone. All selected recipes will be permanently removed from your collection.
+		</p>
+		{#if selectedRecipeIds.length > 0}
+			<div class="text-xs text-gray-400 bg-gray-50 rounded-lg p-2 max-h-20 overflow-y-auto">
+				<strong>Recipes to delete:</strong><br>
+				{#each selectedRecipeIds.slice(0, 5) as recipeId}
+					{@const recipe = $recipes.find(r => r.id === recipeId)}
+					{recipe?.title || recipeId}<br>
+				{/each}
+				{#if selectedRecipeIds.length > 5}
+					... and {selectedRecipeIds.length - 5} more
+				{/if}
+			</div>
+		{/if}
+	</div>
+</Modal>
 
 <style>
 	/* Line clamp utility for consistent card heights */

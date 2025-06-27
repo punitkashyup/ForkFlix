@@ -196,6 +196,75 @@ class ApiService {
 			throw error;
 		}
 	}
+
+	// Shopping List endpoints
+	async getShoppingLists(params = {}) {
+		const searchParams = new URLSearchParams(params);
+		return this.request(`/api/v1/shopping-lists?${searchParams}`);
+	}
+
+	async getShoppingList(listId) {
+		return this.request(`/api/v1/shopping-lists/${listId}`);
+	}
+
+	async generateShoppingList(request) {
+		return this.request('/api/v1/shopping-lists/generate', {
+			method: 'POST',
+			body: JSON.stringify(request)
+		});
+	}
+
+	async updateShoppingList(listId, updateData) {
+		return this.request(`/api/v1/shopping-lists/${listId}`, {
+			method: 'PUT',
+			body: JSON.stringify(updateData)
+		});
+	}
+
+	async deleteShoppingList(listId) {
+		return this.request(`/api/v1/shopping-lists/${listId}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async optimizeShoppingList(listId, optimizationOptions) {
+		return this.request(`/api/v1/shopping-lists/${listId}/optimize`, {
+			method: 'POST',
+			body: JSON.stringify(optimizationOptions)
+		});
+	}
+
+	async addItemToShoppingList(listId, item) {
+		return this.request(`/api/v1/shopping-lists/${listId}/items`, {
+			method: 'POST',
+			body: JSON.stringify(item)
+		});
+	}
+
+	async updateShoppingListItem(listId, itemIndex, updateData) {
+		return this.request(`/api/v1/shopping-lists/${listId}/items/${itemIndex}`, {
+			method: 'PUT',
+			body: JSON.stringify(updateData)
+		});
+	}
+
+	async removeShoppingListItem(listId, itemIndex) {
+		return this.request(`/api/v1/shopping-lists/${listId}/items/${itemIndex}`, {
+			method: 'DELETE'
+		});
+	}
+
+	async processIngredients(request) {
+		return this.request('/api/v1/shopping-lists/ingredients/process', {
+			method: 'POST',
+			body: JSON.stringify(request)
+		});
+	}
+
+
+	async getShoppingListStats() {
+		return this.request('/api/v1/shopping-lists/stats');
+	}
 }
 
 export const apiService = new ApiService();

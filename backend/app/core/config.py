@@ -19,9 +19,9 @@ class Settings(BaseSettings):
         env="CORS_ORIGINS"
     )
     
-    # Firebase configuration
-    firebase_project_id: str = Field(default="", env="FIREBASE_PROJECT_ID")
-    firebase_credentials_path: str = Field(default="../firebase/firebase-admin-key.json", env="FIREBASE_CREDENTIALS_PATH")
+    # Firebase configuration - REQUIRED FOR PRODUCTION
+    firebase_project_id: str = Field(..., env="FIREBASE_PROJECT_ID", description="Firebase project ID")
+    firebase_credentials_path: str = Field(..., env="FIREBASE_CREDENTIALS_PATH", description="Path to Firebase admin credentials JSON file")
     
     # AI API configuration
     huggingface_api_key: str = Field(default="", env="HUGGINGFACE_API_KEY")
@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     facebook_app_id: str = Field(default="", env="FACEBOOK_APP_ID")
     facebook_app_secret: str = Field(default="", env="FACEBOOK_APP_SECRET")
     
-    # Security
-    secret_key: str = Field(default="fallback_secret_key_for_development_only", env="SECRET_KEY")
+    # Security - REQUIRED FOR PRODUCTION
+    secret_key: str = Field(..., env="SECRET_KEY", description="Secret key for JWT token signing")
     algorithm: str = Field(default="HS256", env="ALGORITHM")
     access_token_expire_minutes: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     

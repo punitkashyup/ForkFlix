@@ -2,18 +2,43 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from app.api.v1 import recipes, instagram, ai, proxy, multimodal_extraction
+from app.api.v1 import recipes, instagram, ai, proxy, multimodal_extraction, shopping_lists
 # DISABLED: auth module removed - Firebase handles authentication on frontend
 from app.core.config import settings
 from app.core.database import firebase_service
 from app.schemas.responses import HealthCheckResponse
 import logging
 import time
+import os
 from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=settings.log_level.upper())
 logger = logging.getLogger(__name__)
+
+def validate_production_config():
+    """Validate that all required configuration is present for production."""
+    errors = []
+    
+    # Check Firebase configuration
+    if not settings.firebase_project_id:
+        errors.append("FIREBASE_PROJECT_ID is required")
+    
+    if not settings.firebase_credentials_path:
+        errors.append("FIREBASE_CREDENTIALS_PATH is required")
+    elif not os.path.exists(settings.firebase_credentials_path):
+        errors.append(f"Firebase credentials file not found: {settings.firebase_credentials_path}")
+    
+    # Check security configuration
+    if not settings.secret_key or len(settings.secret_key) < 32:
+        errors.append("SECRET_KEY must be at least 32 characters long")
+    
+    if errors:
+        error_msg = "❌ Configuration validation failed:\n" + "\n".join(f"  - {error}" for error in errors)
+        logger.error(error_msg)
+        raise RuntimeError(f"Invalid configuration: {'; '.join(errors)}")
+    
+    logger.info("✅ Production configuration validated successfully")
 
 # Create FastAPI app
 app = FastAPI(
@@ -50,10 +75,21 @@ async def add_process_time_header(request: Request, call_next):
 async def startup_event():
     """Initialize services on startup"""
     try:
+        logger.info("🚀 Starting ForkFlix API...")
+        
+        # Validate production configuration
+        validate_production_config()
+        
+        # Initialize Firebase services
         firebase_service.initialize()
-        logger.info("Application started successfully")
+        
+        logger.info("✅ ForkFlix API started successfully")
+        logger.info(f"📊 Environment: {settings.environment}")
+        logger.info(f"🔥 Firebase Project: {settings.firebase_project_id}")
+        logger.info(f"🌐 CORS Origins: {settings.cors_origins}")
+        
     except Exception as e:
-        logger.error(f"Failed to start application: {e}")
+        logger.error(f"❌ Failed to start application: {e}")
         raise
 
 # Include API routers
@@ -92,6 +128,12 @@ app.include_router(
     multimodal_extraction.router,
     prefix=f"{settings.api_v1_prefix}/multimodal",
     tags=["multimodal-extraction"]
+)
+
+app.include_router(
+    shopping_lists.router,
+    prefix=f"{settings.api_v1_prefix}/shopping-lists",
+    tags=["shopping-lists"]
 )
 
 # Root endpoint

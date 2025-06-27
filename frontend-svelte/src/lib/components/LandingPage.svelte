@@ -59,30 +59,30 @@
                 </p>
             </div>
 
-            <!-- Feature 2: Smart Organization -->
+            <!-- Feature 2: Smart Shopping Lists -->
             <div class="feature-card">
-                <div class="feature-icon">📚</div>
-                <h3 class="text-xl font-bold text-gray-900 mb-3">Smart Organization</h3>
+                <div class="feature-icon">🛒</div>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">Smart Shopping Lists</h3>
                 <p class="text-gray-600 text-sm">
-                    Automatically categorize recipes by meal type, cuisine, and more.
+                    Generate optimized shopping lists from multiple recipes with AI-powered cost and time optimization.
                 </p>
             </div>
 
-            <!-- Feature 3: One-Click Save -->
+            <!-- Feature 3: Multi-Modal Analysis -->
             <div class="feature-card">
-                <div class="feature-icon">💾</div>
-                <h3 class="text-xl font-bold text-gray-900 mb-3">One-Click Save</h3>
+                <div class="feature-icon">🎥</div>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">Multi-Modal Analysis</h3>
                 <p class="text-gray-600 text-sm">
-                    Save recipes from Instagram, TikTok, and YouTube in a single click.
+                    Extract recipes from video, audio, and text with advanced AI processing for maximum accuracy.
                 </p>
             </div>
 
-            <!-- Feature 4: Access Anywhere -->
+            <!-- Feature 4: Pantry Management -->
             <div class="feature-card">
-                <div class="feature-icon">📱</div>
-                <h3 class="text-xl font-bold text-gray-900 mb-3">Access Anywhere</h3>
+                <div class="feature-icon">🏠</div>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">Pantry Inventory</h3>
                 <p class="text-gray-600 text-sm">
-                    Your recipes are synced across all devices, ready when you are.
+                    Track what you have at home and get shopping lists that account for your existing ingredients.
                 </p>
             </div>
         </div>
@@ -135,6 +135,132 @@
             >
                 Save Your First Recipe
             </button>
+        </div>
+    </div>
+</section>
+
+<!-- Smart Shopping Lists Feature Spotlight -->
+<section class="py-20 bg-gradient-to-br from-green-50 to-blue-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            <!-- Content -->
+            <div>
+                <h2 class="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+                    🛒 Smart Shopping Lists
+                </h2>
+                <p class="text-xl text-gray-700 mb-8">
+                    Never forget an ingredient again. Generate intelligent shopping lists from your saved recipes with AI-powered optimization.
+                </p>
+                
+                <div class="space-y-6">
+                    <div class="flex items-start space-x-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="text-white font-bold text-sm">✓</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-1">Multi-Recipe Consolidation</h4>
+                            <p class="text-gray-600 text-sm">Combine ingredients from multiple recipes with smart quantity calculation and deduplication.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="text-white font-bold text-sm">✓</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-1">Store Optimization</h4>
+                            <p class="text-gray-600 text-sm">Organize items by grocery store sections with optimized shopping routes to save time.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="text-white font-bold text-sm">✓</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-1">Cost & Budget Optimization</h4>
+                            <p class="text-gray-600 text-sm">Get bulk buying recommendations, seasonal alternatives, and budget tracking.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start space-x-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                            <span class="text-white font-bold text-sm">✓</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-900 mb-1">Pantry Integration</h4>
+                            <p class="text-gray-600 text-sm">Automatically exclude items you already have at home from your shopping list.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8">
+                    <button
+                        on:click={handleLogin}
+                        class="inline-flex items-center px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors duration-200"
+                    >
+                        Start Creating Smart Lists
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Visual/Mockup -->
+            <div class="lg:text-center">
+                <div class="bg-white rounded-2xl shadow-2xl p-6 max-w-md mx-auto">
+                    <div class="border-b pb-4 mb-4">
+                        <h3 class="font-bold text-gray-900 flex items-center">
+                            🛒 Weekend Meal Prep
+                            <span class="ml-auto text-sm text-green-600 font-normal">$67.45</span>
+                        </h3>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div class="bg-green-600 h-2 rounded-full" style="width: 75%"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">15 of 20 items • 75% complete</p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xl">🥬</span>
+                            <div class="flex-1">
+                                <p class="font-medium text-sm">Produce</p>
+                                <div class="space-y-1">
+                                    <div class="flex items-center text-xs">
+                                        <input type="checkbox" checked class="mr-2" disabled>
+                                        <span class="line-through text-gray-500">2 lbs Chicken Breast</span>
+                                        <span class="ml-auto text-green-600">$12.99</span>
+                                    </div>
+                                    <div class="flex items-center text-xs">
+                                        <input type="checkbox" class="mr-2" disabled>
+                                        <span>1 bag Mixed Greens</span>
+                                        <span class="ml-auto">$4.50</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3">
+                            <span class="text-xl">🥫</span>
+                            <div class="flex-1">
+                                <p class="font-medium text-sm">Pantry</p>
+                                <div class="flex items-center text-xs">
+                                    <input type="checkbox" class="mr-2" disabled>
+                                    <span>2 cans Diced Tomatoes</span>
+                                    <span class="ml-auto">$3.98</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-yellow-50 border border-yellow-200 rounded p-2">
+                            <p class="text-xs text-yellow-800">
+                                💡 <strong>AI Tip:</strong> Buy chicken in bulk to save $4.50
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </section>

@@ -13,20 +13,15 @@ class FirebaseService:
         self.initialized = False
     
     def initialize(self):
-        """Initialize Firebase Admin SDK"""
+        """Initialize Firebase Admin SDK - PRODUCTION MODE ONLY"""
         if self.initialized:
             return
         
         try:
-            # Check if Firebase credentials file exists
+            # Check if Firebase credentials are available
             if not os.path.exists(settings.firebase_credentials_path):
-                logger.warning(f"Firebase credentials file not found at {settings.firebase_credentials_path}")
-                if settings.environment == "development":
-                    logger.info("Development mode: Firebase initialization skipped")
-                    self.initialized = True
-                    return
-                else:
-                    raise FileNotFoundError(f"Firebase credentials file not found: {settings.firebase_credentials_path}")
+                logger.error(f"❌ Firebase credentials file not found at {settings.firebase_credentials_path}")
+                raise FileNotFoundError(f"Firebase credentials file is required: {settings.firebase_credentials_path}")
             
             # Initialize Firebase Admin SDK
             cred = credentials.Certificate(settings.firebase_credentials_path)
@@ -34,39 +29,39 @@ class FirebaseService:
             # Check if Firebase app is already initialized
             try:
                 firebase_admin.get_app()
-                logger.info("Firebase app already initialized")
+                logger.info("✅ Firebase app already initialized")
             except ValueError:
                 # App doesn't exist, initialize it
                 firebase_admin.initialize_app(cred, {
                     'storageBucket': f"{settings.firebase_project_id}.appspot.com"
                 })
-                logger.info("Firebase app initialized successfully")
+                logger.info("✅ Firebase app initialized successfully")
             
             # Get Firestore client
             self.db = firestore.client()
+            if not self.db:
+                raise RuntimeError("Failed to create Firestore client")
             
             # Get Storage bucket
             self.storage_bucket = storage.bucket()
+            if not self.storage_bucket:
+                raise RuntimeError("Failed to create Firebase Storage bucket")
             
             self.initialized = True
-            logger.info("Firebase services initialized successfully")
+            logger.info("✅ Firebase services initialized successfully")
             
         except Exception as e:
-            logger.error(f"Failed to initialize Firebase: {e}")
-            if settings.environment == "development":
-                logger.warning("Development mode: Continuing without Firebase")
-                self.initialized = True
-            else:
-                raise
+            logger.error(f"❌ Failed to initialize Firebase: {e}")
+            raise RuntimeError(f"Firebase initialization failed: {e}")
     
     def get_db(self):
         """Get Firestore database client"""
         if not self.initialized:
             self.initialize()
         
-        if not self.db and settings.environment == "development":
-            logger.warning("Firestore client not available in development mode")
-            return None
+        if not self.db:
+            logger.error("❌ Firestore client not available")
+            raise RuntimeError("Firestore database is not available")
             
         return self.db
     
@@ -75,9 +70,9 @@ class FirebaseService:
         if not self.initialized:
             self.initialize()
             
-        if not self.storage_bucket and settings.environment == "development":
-            logger.warning("Firebase Storage not available in development mode")
-            return None
+        if not self.storage_bucket:
+            logger.error("❌ Firebase Storage not available")
+            raise RuntimeError("Firebase Storage is not available")
             
         return self.storage_bucket
 

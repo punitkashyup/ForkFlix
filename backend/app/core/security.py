@@ -37,80 +37,85 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 async def verify_firebase_token(credentials: Optional[HTTPAuthorizationCredentials] = Security(security)) -> dict:
-    """Verify Firebase ID token"""
+    """Verify Firebase ID token - PRODUCTION MODE ONLY"""
     try:
-        logger.info(f"🔍 Token verification - Environment: {settings.environment}")
-        logger.info(f"🔍 Credentials provided: {credentials is not None}")
-        if credentials:
-            logger.info(f"🔍 Token scheme: {credentials.scheme}")
-            logger.info(f"🔍 Token preview: {credentials.credentials[:50]}...")
+        logger.info("🔍 Verifying Firebase token")
         
-        # For development, if no token provided, return mock user
-        if settings.environment == "development" and not credentials:
-            logger.info("✅ Development mode: Using mock authentication (no token)")
-            return {
-                "uid": "dev_user_123",
-                "email": "dev@example.com",
-                "name": "Development User",
-                "picture": None
-            }
+        if not credentials:
+            logger.error("❌ No authentication credentials provided")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication token required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         
-        # If credentials provided, try to verify
-        if credentials:
-            # For development, accept any token
-            if settings.environment == "development":
-                logger.info("✅ Development mode: Accepting provided token")
-                return {
-                    "uid": "firebase_user_from_token",
-                    "email": "token@example.com", 
-                    "name": "Token User",
-                    "picture": None
-                }
+        if credentials.scheme.lower() != "bearer":
+            logger.error(f"❌ Invalid authentication scheme: {credentials.scheme}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication scheme. Use Bearer token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Verify Firebase token using Firebase Admin SDK
+        try:
+            import firebase_admin
+            from firebase_admin import auth as firebase_auth
             
-            # In production, uncomment and use this:
-            # from firebase_admin import auth
-            # decoded_token = auth.verify_id_token(credentials.credentials)
-            # return decoded_token
-        
-        # Fallback mock user for development
-        if settings.environment == "development":
-            logger.info("✅ Development mode: Using fallback mock user")
+            # Initialize Firebase Admin if not already initialized
+            if not firebase_admin._apps:
+                import firebase_admin
+                from firebase_admin import credentials as firebase_credentials
+                logger.info("🔧 Initializing Firebase Admin SDK")
+                firebase_admin.initialize_app()
+            
+            # Verify the Firebase ID token
+            decoded_token = firebase_auth.verify_id_token(credentials.credentials)
+            user_id = decoded_token.get('uid')
+            
+            if not user_id:
+                logger.error("❌ No user ID found in token")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token: no user ID found"
+                )
+            
+            logger.info(f"✅ Successfully verified token for user: {user_id}")
             return {
-                "uid": "mock_user_123",
-                "email": "user@example.com",
-                "name": "Mock User", 
-                "picture": None
+                "uid": user_id,
+                "email": decoded_token.get('email', ''),
+                "name": decoded_token.get('name', ''),
+                "picture": decoded_token.get('picture', ''),
+                "email_verified": decoded_token.get('email_verified', False),
+                "firebase": decoded_token  # Include full token data
             }
-        
-        # In production, require authentication
-        logger.error("❌ Production mode: Authentication required")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+            
+        except firebase_admin.auth.InvalidIdTokenError:
+            logger.error("❌ Invalid Firebase ID token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired authentication token"
+            )
+        except firebase_admin.auth.ExpiredIdTokenError:
+            logger.error("❌ Expired Firebase ID token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication token has expired"
+            )
+        except Exception as firebase_error:
+            logger.error(f"❌ Firebase authentication error: {firebase_error}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication verification failed"
+            )
         
     except HTTPException:
-        logger.error("❌ HTTPException raised during token verification")
         raise
     except Exception as e:
-        logger.error(f"❌ Token verification failed with exception: {e}")
-        logger.error(f"❌ Exception type: {type(e)}")
-        
-        # In development, return mock user on error
-        if settings.environment == "development":
-            logger.warning("⚠️ Authentication failed, using mock user for development")
-            return {
-                "uid": "error_fallback_user",
-                "email": "fallback@example.com",
-                "name": "Fallback User",
-                "picture": None
-            }
-        
+        logger.error(f"❌ Unexpected error during token verification: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service error"
         )
 
 def decode_jwt_token(token: str) -> Optional[dict]:

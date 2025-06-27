@@ -32,7 +32,9 @@
       "Bash(rg:*)",
       "Bash(mv:*)",
       "Bash(npm run check:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(pkill:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
