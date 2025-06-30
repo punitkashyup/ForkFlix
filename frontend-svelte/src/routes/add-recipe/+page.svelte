@@ -540,8 +540,11 @@
 				>
 					← Back to Home
 				</button>
-				<h1 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-					{editMode ? `✏️ Edit Recipe${originalRecipe ? ': ' + originalRecipe.title : ''}` : '✨ Add New Recipe'}
+				<h1 class="text-2xl font-bold flex items-center gap-2">
+					<span class="text-2xl">{editMode ? '✏️' : '✨'}</span>
+					<span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+						{editMode ? `Edit Recipe${originalRecipe ? ': ' + originalRecipe.title : ''}` : 'Add New Recipe'}
+					</span>
 				</h1>
 				<div></div>
 			</div>
@@ -553,7 +556,10 @@
 			<!-- Left Column: Instagram URL and AI Extraction -->
 			<div class="space-y-6">
 				<div class="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 p-8">
-					<h2 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">🤖 Enhanced AI Recipe Extraction</h2>
+					<h2 class="text-2xl font-bold flex items-center gap-2 mb-6">
+						<span class="text-2xl">🤖</span>
+						<span class="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Enhanced AI Recipe Extraction</span>
+					</h2>
 					
 					<div class="space-y-4">
 						<div>

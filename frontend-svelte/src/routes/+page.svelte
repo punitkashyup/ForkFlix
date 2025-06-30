@@ -496,9 +496,9 @@
 									</div>
 									
 									<!-- Action Buttons -->
-									<div class="flex gap-2">
+									<div class="flex gap-2 items-center">
 										<Button
-											variant="primary"
+											variant="secondary"
 											size="sm"
 											fullWidth={true}
 											iconPosition="right"
@@ -508,13 +508,19 @@
 										>
 											View Recipe
 										</Button>
-										<Button
-											variant="danger"
-											size="sm"
-											icon="🗑️"
+										<button
+											class="recipe-delete-btn"
 											on:click={() => handleDeleteRecipe(recipe)}
 											title="Delete Recipe"
-										/>
+											type="button"
+										>
+											<svg class="delete-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+												<path d="M3 6H5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+												<path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+												<path d="M10 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+												<path d="M14 11V17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+											</svg>
+										</button>
 									</div>
 								</div>
 							</div>
@@ -599,5 +605,46 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+
+	/* Custom delete button with red styling */
+	.recipe-delete-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-width: 36px;
+		height: 36px;
+		padding: 8px;
+		background: transparent;
+		border: 1px solid #fca5a5;
+		border-radius: 8px;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		color: #dc2626;
+		flex-shrink: 0;
+	}
+
+	.recipe-delete-btn:hover {
+		background: #fef2f2;
+		border-color: #f87171;
+		color: #b91c1c;
+	}
+
+	.recipe-delete-btn:active {
+		background: #fee2e2;
+		border-color: #ef4444;
+		transform: scale(0.95);
+	}
+
+	.recipe-delete-btn:focus {
+		outline: none;
+		ring: 2px solid #fca5a5;
+		ring-offset: 2px;
+	}
+
+	.delete-icon {
+		width: 18px;
+		height: 18px;
+		stroke-width: 2;
 	}
 </style>

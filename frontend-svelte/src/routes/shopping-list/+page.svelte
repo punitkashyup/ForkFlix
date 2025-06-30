@@ -9,6 +9,7 @@
   import ShoppingList from '$lib/components/ShoppingList.svelte';
   import Loading from '$lib/components/Loading.svelte';
   import Button from '$lib/components/Button.svelte';
+  import Modal from '$lib/components/Modal.svelte';
   
   let recipes = [];
   let selectedRecipeIds = [];
@@ -18,6 +19,9 @@
   let activeTab = 'create'; // 'create', 'my-lists'
   let myShoppingLists = [];
   let loadingLists = false;
+  let deletingListId = null;
+  let showDeleteModal = false;
+  let listToDelete = null;
   
   // Redirect to login if not authenticated
   $: if (!$user && $authInitialized) {
@@ -104,6 +108,25 @@
     activeTab = 'my-lists';
     loadMyShoppingLists();
   }
+
+  function handleShoppingListError(event) {
+    // If there was a duplicate error, automatically switch to My Lists tab
+    console.log('Shopping list generation error, switching to My Lists tab');
+    if (activeTab !== 'my-lists') {
+      activeTab = 'my-lists';
+      if (myShoppingLists.length === 0) {
+        loadMyShoppingLists();
+      }
+    }
+  }
+
+  function handleViewExistingLists() {
+    // Switch to My Lists tab and load lists
+    activeTab = 'my-lists';
+    if (myShoppingLists.length === 0) {
+      loadMyShoppingLists();
+    }
+  }
   
   function handleTabChange(tab) {
     activeTab = tab;
@@ -118,6 +141,37 @@
   
   function goBack() {
     goto('/');
+  }
+
+  function handleDeleteShoppingList(list) {
+    listToDelete = list;
+    showDeleteModal = true;
+  }
+
+  async function confirmDeleteShoppingList() {
+    if (!listToDelete) return;
+
+    try {
+      deletingListId = listToDelete.id;
+      await shoppingListService.deleteShoppingList(listToDelete.id);
+      
+      // Remove from local list
+      myShoppingLists = myShoppingLists.filter(list => list.id !== listToDelete.id);
+      
+      console.log('✅ Shopping list deleted successfully');
+      showDeleteModal = false;
+      listToDelete = null;
+    } catch (err) {
+      console.error('❌ Error deleting shopping list:', err);
+      error = `Failed to delete shopping list: ${err.message}`;
+    } finally {
+      deletingListId = null;
+    }
+  }
+
+  function cancelDeleteShoppingList() {
+    showDeleteModal = false;
+    listToDelete = null;
   }
 </script>
 
@@ -265,6 +319,8 @@
                 recipeIds={selectedRecipeIds}
                 showGenerateButton={true}
                 on:listGenerated={handleListGenerated}
+                on:duplicateError={handleShoppingListError}
+                on:viewExistingLists={handleViewExistingLists}
               />
             </div>
           {:else}
@@ -345,8 +401,31 @@
                 </div>
                 
                 <div class="list-actions">
-                  <Button variant="secondary" size="sm">View List</Button>
-                  <Button variant="outline" size="sm">Edit</Button>
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    fullWidth={true}
+                    on:click={() => goto(`/shopping-list/${list.id}`)}
+                  >
+                    View List
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    fullWidth={true}
+                    on:click={() => goto(`/shopping-list/${list.id}/edit`)}
+                  >
+                    Edit
+                  </Button>
+                  <button
+                    class="shopping-list-delete-btn"
+                    on:click={() => handleDeleteShoppingList(list)}
+                    disabled={deletingListId === list.id}
+                    title="Delete Shopping List"
+                    type="button"
+                  >
+                    {deletingListId === list.id ? '⏳' : '🗑️'}
+                  </button>
                 </div>
               </div>
             {/each}
@@ -356,6 +435,32 @@
     {/if}
   </div>
 {/if}
+
+<!-- Delete Confirmation Modal -->
+<Modal
+  bind:open={showDeleteModal}
+  title="Delete Shopping List"
+  confirmText="Delete"
+  cancelText="Cancel"
+  confirmVariant="danger"
+  loading={deletingListId !== null}
+  on:confirm={confirmDeleteShoppingList}
+  on:cancel={cancelDeleteShoppingList}
+  on:close={cancelDeleteShoppingList}
+>
+  <div class="text-center">
+    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+      <span class="text-2xl">⚠️</span>
+    </div>
+    <p class="text-gray-900 mb-2">
+      Are you sure you want to delete 
+      <strong class="font-semibold">"{listToDelete?.name}"</strong>?
+    </p>
+    <p class="text-sm text-gray-500">
+      This action cannot be undone. The shopping list will be permanently removed.
+    </p>
+  </div>
+</Modal>
 
 <style>
   .shopping-list-page {
@@ -792,6 +897,52 @@
   .list-actions {
     display: flex;
     gap: 8px;
+    width: 100%;
+    align-items: center;
+  }
+
+  .list-actions :global(.btn) {
+    flex: 1;
+    text-align: center;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .shopping-list-delete-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 6px;
+    background: rgba(156, 163, 175, 0.1);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    color: #6b7280;
+    opacity: 0.7;
+  }
+
+  .shopping-list-delete-btn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .shopping-list-delete-btn:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  .shopping-list-delete-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
   
   /* Buttons */

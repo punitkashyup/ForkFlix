@@ -75,6 +75,12 @@ class ShoppingListService:
     async def generate_shopping_list(self, user_id: str, request: GenerateShoppingListRequest) -> ShoppingList:
         """Generate a smart shopping list from multiple recipes."""
         try:
+            # Check if shopping lists already exist for any of these recipes
+            existing_lists = await self._check_existing_shopping_lists(user_id, request.recipe_ids)
+            if existing_lists:
+                recipe_names = [r['recipe_title'] for r in existing_lists]
+                raise ValueError(f"Shopping lists already exist for: {', '.join(recipe_names)}. Please use the existing lists or delete them first.")
+            
             # Get recipes
             recipes = await self._get_recipes(user_id, request.recipe_ids)
             if not recipes:
@@ -204,6 +210,44 @@ class ShoppingListService:
             raise
         
         return recipes
+    
+    async def _check_existing_shopping_lists(self, user_id: str, recipe_ids: List[str]) -> List[Dict]:
+        """Check if shopping lists already exist for any of the given recipes."""
+        existing_lists = []
+        try:
+            db = self._get_db()
+            if not db:
+                logger.warning("Database not available - skipping duplicate check")
+                return []
+            
+            # Query shopping lists that contain any of the recipe IDs
+            query = db.collection('shopping_lists').where('user_id', '==', user_id)
+            docs = query.get()
+            
+            for doc in docs:
+                data = doc.to_dict()
+                list_recipe_ids = data.get('recipe_ids', [])
+                
+                # Check if any of the requested recipe IDs already exist in this list
+                overlapping_recipes = set(recipe_ids) & set(list_recipe_ids)
+                if overlapping_recipes:
+                    # Get recipe titles for better error message
+                    for recipe_id in overlapping_recipes:
+                        recipes = await self._get_recipes(user_id, [recipe_id])
+                        if recipes:
+                            existing_lists.append({
+                                'list_id': doc.id,
+                                'list_name': data.get('name', 'Unnamed List'),
+                                'recipe_id': recipe_id,
+                                'recipe_title': recipes[0].get('title', 'Unknown Recipe')
+                            })
+            
+        except Exception as e:
+            logger.error(f"Error checking existing shopping lists: {e}")
+            # Don't fail the whole operation if we can't check duplicates
+            return []
+        
+        return existing_lists
     
     async def _consolidate_ingredients(self, ingredients: List) -> List:
         """Consolidate duplicate ingredients with smart merging."""

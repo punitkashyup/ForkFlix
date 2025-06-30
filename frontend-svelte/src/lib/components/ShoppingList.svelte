@@ -16,6 +16,7 @@
   let isLoading = false;
   let isGenerating = false;
   let error = null;
+  let duplicateError = null;
   
   // Generation options (simplified)
   let listName = '';
@@ -35,6 +36,7 @@
     
     isGenerating = true;
     error = null;
+    duplicateError = null;
     
     try {
       const request = {
@@ -53,10 +55,42 @@
       
     } catch (err) {
       console.error('❌ Error generating shopping list:', err);
-      error = err.message || 'Failed to generate shopping list';
+      
+      // Check if this is a duplicate shopping list error
+      if (err.message && err.message.includes('Shopping lists already exist for:')) {
+        duplicateError = {
+          message: err.message,
+          recipes: extractRecipeNamesFromError(err.message)
+        };
+        // Dispatch event to parent to handle duplicate error
+        dispatch('duplicateError', { 
+          message: err.message, 
+          recipes: duplicateError.recipes 
+        });
+      } else {
+        error = err.message || 'Failed to generate shopping list';
+      }
     } finally {
       isGenerating = false;
     }
+  }
+
+  function extractRecipeNamesFromError(errorMessage) {
+    // Extract recipe names from error message like "Shopping lists already exist for: Recipe Name. Please use..."
+    const match = errorMessage.match(/Shopping lists already exist for: ([^.]+)\./);
+    if (match) {
+      return match[1].split(', ').map(name => name.trim());
+    }
+    return [];
+  }
+
+  function dismissDuplicateError() {
+    duplicateError = null;
+  }
+
+  function viewExistingLists() {
+    dispatch('viewExistingLists');
+    duplicateError = null;
   }
   
   function formatQuantity(quantity, unit) {
@@ -136,6 +170,43 @@
         <span class="error-icon">⚠️</span>
         <span class="error-text">{error}</span>
         <button class="error-close" on:click={() => error = null}>×</button>
+      </div>
+    {/if}
+
+    {#if duplicateError}
+      <div class="duplicate-error-message">
+        <div class="duplicate-error-header">
+          <span class="duplicate-error-icon">📋</span>
+          <h4>Shopping Lists Already Exist</h4>
+          <button class="error-close" on:click={dismissDuplicateError}>×</button>
+        </div>
+        <p class="duplicate-error-text">
+          Some of your selected recipes already have shopping lists:
+        </p>
+        <ul class="duplicate-recipe-list">
+          {#each duplicateError.recipes as recipeName}
+            <li>• {recipeName}</li>
+          {/each}
+        </ul>
+        <div class="duplicate-error-actions">
+          <div class="duplicate-error-buttons">
+            <Button
+              variant="primary"
+              size="sm"
+              icon="👀"
+              on:click={viewExistingLists}
+            >
+              View My Shopping Lists
+            </Button>
+          </div>
+          <p class="duplicate-error-suggestion">
+            <strong>Other options:</strong>
+          </p>
+          <ul class="duplicate-action-list">
+            <li>Delete existing lists if you want to create a new one</li>
+            <li>Select different recipes that don't have shopping lists yet</li>
+          </ul>
+        </div>
       </div>
     {/if}
     
@@ -286,6 +357,99 @@
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+
+  /* Duplicate Error Styling */
+  .duplicate-error-message {
+    background: #fffbeb;
+    border: 1px solid #f59e0b;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.1);
+  }
+
+  .duplicate-error-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .duplicate-error-icon {
+    font-size: 24px;
+  }
+
+  .duplicate-error-header h4 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #92400e;
+    margin: 0;
+    flex: 1;
+  }
+
+  .duplicate-error-header .error-close {
+    color: #92400e;
+  }
+
+  .duplicate-error-text {
+    color: #92400e;
+    margin: 0 0 12px 0;
+    font-weight: 500;
+  }
+
+  .duplicate-recipe-list {
+    background: rgba(245, 158, 11, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 12px 0;
+    list-style: none;
+  }
+
+  .duplicate-recipe-list li {
+    color: #92400e;
+    font-weight: 500;
+    margin: 4px 0;
+  }
+
+  .duplicate-error-actions {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(245, 158, 11, 0.2);
+  }
+
+  .duplicate-error-buttons {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .duplicate-error-suggestion {
+    color: #92400e;
+    margin: 0 0 8px 0;
+    font-size: 14px;
+  }
+
+  .duplicate-action-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .duplicate-action-list li {
+    color: #78350f;
+    font-size: 14px;
+    margin: 6px 0;
+    padding-left: 16px;
+    position: relative;
+  }
+
+  .duplicate-action-list li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: #f59e0b;
+    font-weight: bold;
   }
   
   .generator-form {
